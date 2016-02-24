@@ -127,15 +127,15 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_manual_pub(nullptr),
 	_land_detector_pub(nullptr),
 	_time_offset_pub(nullptr),
-	_apnt_gps_status_pub(-1),
-	_apnt_site_status_pub(-1),
-	_tracking_status_pub(-1),
-	_tracking_cmd_pub(-1),
-	_temp_hunt_result_pub(-1), // TEMPORARY
-	_apnt_position_pub(-1),
-	_bearing_pub(-1),
-	_bearing_mle_pub(-1),
-	_rssi_pub(-1),
+    _apnt_gps_status_pub(nullptr),
+    _apnt_site_status_pub(nullptr),
+    _tracking_status_pub(nullptr),
+    _tracking_cmd_pub(nullptr),
+    _temp_hunt_result_pub(nullptr), // TEMPORARY
+    _apnt_position_pub(nullptr),
+    _bearing_pub(nullptr),
+    _bearing_mle_pub(nullptr),
+    _rssi_pub(nullptr),
 	_control_mode_sub(orb_subscribe(ORB_ID(vehicle_control_mode))),
 	_hil_frames(0),
 	_old_timestamp(0),
@@ -1816,7 +1816,7 @@ MavlinkReceiver::handle_message_apnt_gps_status(mavlink_message_t *msg) {
 	}
 
 
-	if (_apnt_gps_status_pub < 0) {
+    if (_apnt_gps_status_pub == nullptr) {
 		_apnt_gps_status_pub = orb_advertise(ORB_ID(apnt_gps_status), &gps_stat_s);
 	} else {
 		orb_publish(ORB_ID(apnt_gps_status), _apnt_gps_status_pub, &gps_stat_s);
@@ -1845,7 +1845,7 @@ MavlinkReceiver::handle_message_apnt_site_status(mavlink_message_t *msg) {
 
 
 
-	if (_apnt_site_status_pub < 0) {
+    if (_apnt_site_status_pub == nullptr) {
 		_apnt_site_status_pub = orb_advertise(ORB_ID(apnt_site_status), &site_stat_s);
 	} else {
 		orb_publish(ORB_ID(apnt_site_status), _apnt_site_status_pub, &site_stat_s);
@@ -1866,7 +1866,7 @@ MavlinkReceiver::handle_message_tracking_status(mavlink_message_t *msg) {
 	// tracking_stat_s.hunt_mode_state = t_status.hunt_mode_state;
 
 
-	if (_tracking_status_pub < 0) {
+    if (_tracking_status_pub == nullptr) {
 		_tracking_status_pub = orb_advertise(ORB_ID(tracking_status), &tracking_stat_s);
 	} else {
 		orb_publish(ORB_ID(tracking_status), _tracking_status_pub, &tracking_stat_s);
@@ -1887,7 +1887,7 @@ MavlinkReceiver::handle_message_apnt_position(mavlink_message_t *msg) {
 	apnt_pos_s.lat = a_position.apnt_lat;
 	apnt_pos_s.lon = a_position.apnt_lon;
 
-	if (_apnt_position_pub < 0) {
+    if (_apnt_position_pub == nullptr) {
 		_apnt_position_pub = orb_advertise(ORB_ID(apnt_position), &apnt_pos_s);
 	} else {
 		orb_publish(ORB_ID(apnt_position), _apnt_position_pub, &apnt_pos_s);
@@ -1911,7 +1911,7 @@ MavlinkReceiver::handle_message_tracking_cmd(mavlink_message_t *msg) {
 	track_cmd_s.altitude = cmd.altitude;
 
 
-	if (_tracking_cmd_pub < 0) {
+    if (_tracking_cmd_pub == nullptr) {
 		_tracking_cmd_pub = orb_advertise(ORB_ID(tracking_cmd), &track_cmd_s);
 	} else {
 		orb_publish(ORB_ID(tracking_cmd), _tracking_cmd_pub, &track_cmd_s);
@@ -1930,7 +1930,7 @@ MavlinkReceiver::handle_message_hunt_reached(mavlink_message_t *msg) {
 
 	result.cmd_reached = hmr.reached_cmd_id;
 
-	if (_temp_hunt_result_pub < 0) {
+    if (_temp_hunt_result_pub == nullptr) {
 		_temp_hunt_result_pub = orb_advertise(ORB_ID(temp_hunt_result), &result);
 	} else {
 		orb_publish(ORB_ID(temp_hunt_result), _temp_hunt_result_pub, &result);
@@ -1951,9 +1951,9 @@ MavlinkReceiver::handle_message_bearing_cc(mavlink_message_t *msg) {
 	bearing.alt = bear.alt;
 	bearing.timestamp_us = hrt_absolute_time();
 
-
-	if (_bearing_pub < 0) {
-		_bearing_pub = orb_advertise(ORB_ID(hunt_bearing), &bearing);
+    int bearing_instance;
+    if (_bearing_pub == nullptr) {
+        _bearing_pub = orb_advertise_multi(ORB_ID(hunt_bearing), &bearing, &bearing_instance, ORB_PRIO_DEFAULT);
 	} else {
 		orb_publish(ORB_ID(hunt_bearing), _bearing_pub, &bearing);
 	}
@@ -1973,12 +1973,18 @@ MavlinkReceiver::handle_message_bearing_mle(mavlink_message_t *msg) {
 	bearing.alt = bear.alt;
 	bearing.timestamp_us = hrt_absolute_time();
 
-
-	if (_bearing_mle_pub < 0) {
+    /*
+    if (_bearing_mle_pub == nullptr) {
 		_bearing_mle_pub = orb_advertise(ORB_ID(hunt_bearing_mle), &bearing);
 	} else {
 		orb_publish(ORB_ID(hunt_bearing_mle), _bearing_mle_pub, &bearing);
-	}
+    } */
+    int bearing_instance;
+    if (_bearing_pub == nullptr) {
+        _bearing_pub = orb_advertise_multi(ORB_ID(hunt_bearing), &bearing, &bearing_instance, ORB_PRIO_DEFAULT);
+    } else {
+        orb_publish(ORB_ID(hunt_bearing), _bearing_pub, &bearing);
+    }
 }
 
 void
@@ -1998,7 +2004,7 @@ MavlinkReceiver::handle_message_rssi(mavlink_message_t *msg) {
 	rssi.timestamp_us = hrt_absolute_time();
 
 
-	if (_rssi_pub < 0) {
+    if (_rssi_pub == nullptr) {
 		_rssi_pub = orb_advertise(ORB_ID(hunt_rssi), &rssi);
 	} else {
 		orb_publish(ORB_ID(hunt_rssi), _rssi_pub, &rssi);

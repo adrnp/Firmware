@@ -3309,7 +3309,8 @@ private:
 
 protected:
 	explicit MavlinkStreamBearingMLE(Mavlink *mavlink) : MavlinkStream(mavlink),
-		bearing_sub(_mavlink->add_orb_subscription(ORB_ID(hunt_bearing_mle))),
+        //bearing_sub(_mavlink->add_orb_subscription(ORB_ID(hunt_bearing_mle))),
+        bearing_sub(_mavlink->add_orb_subscription(ORB_ID(hunt_bearing))),
 		time(0)
 	{}
 

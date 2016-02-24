@@ -28,7 +28,7 @@ Hunt::Hunt(Navigator *navigator, const char *name) :
 /* hunt state/logic */
 	_started(false),
 	_current_cmd_id(0),
-	_hunt_state(HUNT_STATE_OFF),
+    _hunt_state(hunt_state_s::HUNT_STATE_OFF),
 
 /* params */
 	_param_yaw_increment(this, "HUNT_YAW_STEP", false),
@@ -42,8 +42,8 @@ Hunt::Hunt(Navigator *navigator, const char *name) :
 	_local_pos_sub(-1),
 
 /* publications */
-	_hunt_result_pub(-1),
-	_hunt_state_pub(-1),
+    _hunt_result_pub(nullptr),
+    _hunt_state_pub(nullptr),
 
 /* rotation handling */
 	_current_rotation_direction(0),
@@ -88,7 +88,7 @@ Hunt::on_inactive()
 	// maybe need to think about doing a suspended mode instead of off
 	// would make the _started parameter not needed?
 	/* put the hunt into off mode */
-	_hunt_state = HUNT_STATE_OFF;
+    _hunt_state = hunt_state_s::HUNT_STATE_OFF;
 }
 
 void
@@ -157,7 +157,7 @@ Hunt::on_active()
 	// only check mission success when not in a waiting mode (to avoid always checking whether or not
 	// we have reached the cmd when we are just waiting around)
 	// TODO: use own is mission item reached.... trying to use the existing one may be the source of some problems
-	if (_hunt_state == HUNT_STATE_MOVE && is_mission_item_reached()) {
+    if (_hunt_state == hunt_state_s::HUNT_STATE_MOVE && is_mission_item_reached()) {
 		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] travel completed");
 
 		_test_time = hrt_absolute_time(); // update the test time, this is for a delay between
@@ -166,7 +166,7 @@ Hunt::on_active()
 		report_cmd_finished();
 
 		// change the state to waiting since we have reached the target
-		_hunt_state = HUNT_STATE_WAIT;
+        _hunt_state = hunt_state_s::HUNT_STATE_WAIT;
 
 		// have vehicle start waiting
 		set_waiting();
@@ -177,7 +177,7 @@ Hunt::on_active()
 		// state changed here, so report it
 		report_status();
 
-	} else if (_hunt_state == HUNT_STATE_ROTATE) {
+    } else if (_hunt_state == hunt_state_s::HUNT_STATE_ROTATE) {
 
 		/* check to see if rotation finished */
 		if (is_mission_item_reached()) {
@@ -188,7 +188,7 @@ Hunt::on_active()
 
 			report_cmd_finished();
 
-			_hunt_state = HUNT_STATE_WAIT;
+            _hunt_state = hunt_state_s::HUNT_STATE_WAIT;
 			set_waiting();
 			reset_mission_item_reached();
 			report_cmd_finished();
@@ -233,7 +233,7 @@ Hunt::on_active()
 
 	// XXX: not sure if or or and is best here, depends on when hunt state is
 	// changed to wait
-	if (_hunt_state == HUNT_STATE_WAIT) {
+    if (_hunt_state == hunt_state_s::HUNT_STATE_WAIT) {
 		// we have reached the desired point or are waiting
 
 		// ------------ DEBUG ------------------- //
@@ -298,10 +298,10 @@ Hunt::set_next_item()
 
 	// create a mission item from the tracking cmd
 	switch (_tracking_cmd.cmd_type) {
-	case HUNT_CMD_TRAVEL: {
+    case tracking_cmd_s::HUNT_CMD_TRAVEL: {
 		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] traveling");
 		/* change the hunt state to move */
-		_hunt_state = HUNT_STATE_MOVE;
+        _hunt_state = hunt_state_s::HUNT_STATE_MOVE;
 
 		/* get desired north and east distances of travel */
 		set_mission_latlon();
@@ -314,15 +314,15 @@ Hunt::set_next_item()
 
 		break;
 	}
-	case HUNT_CMD_ROTATE: {
+    case tracking_cmd_s::HUNT_CMD_ROTATE: {
 
 		// if we are already in a rotation state, will want to terminate that rotation first
-		if (_hunt_state == HUNT_STATE_ROTATE) {
+        if (_hunt_state == hunt_state_s::HUNT_STATE_ROTATE) {
 			end_rotation();
 		}
 
 		/* change the hunt state to rotate */
-		_hunt_state = HUNT_STATE_ROTATE;
+        _hunt_state = hunt_state_s::HUNT_STATE_ROTATE;
 		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] rotating");
 
 		// do the management for starting a rotation
@@ -330,9 +330,9 @@ Hunt::set_next_item()
 
 		break;
 	}
-	case HUNT_CMD_FINISH: {
+    case tracking_cmd_s::HUNT_CMD_FINISH: {
 		// change the hunt state to off
-		_hunt_state = HUNT_STATE_OFF;
+        _hunt_state = hunt_state_s::HUNT_STATE_OFF;
 
 		set_waiting();
 
@@ -431,12 +431,12 @@ void
 Hunt::publish_hunt_result()
 {
 	/* lazily publish the mission result only once available */
-	if (_hunt_result_pub > 0) {
-		/* publish mission result */
-		orb_publish(ORB_ID(hunt_result), _hunt_result_pub, &_hunt_result_pub);
+    if (_hunt_result_pub == nullptr) {
+        /* advertise and publish */
+        _hunt_result_pub = orb_advertise(ORB_ID(hunt_result), &_hunt_result_pub);
 	} else {
-		/* advertise and publish */
-		_hunt_result_pub = orb_advertise(ORB_ID(hunt_result), &_hunt_result_pub);
+        /* publish mission result */
+        orb_publish(ORB_ID(hunt_result), _hunt_result_pub, &_hunt_result_pub);
 	}
 
 	/* reset reached bool */
@@ -459,12 +459,12 @@ void
 Hunt::publish_status()
 {
 	/* lazily publish the hunt state only once available */
-	if (_hunt_state_pub > 0) {
-		/* publish current hunt state */
-		orb_publish(ORB_ID(hunt_state), _hunt_state_pub, &_hunt_state_s);
+    if (_hunt_state_pub == nullptr) {
+        /* advertise and publish */
+        _hunt_state_pub = orb_advertise(ORB_ID(hunt_state), &_hunt_state_s);
 	} else {
-		/* advertise and publish */
-		_hunt_state_pub = orb_advertise(ORB_ID(hunt_state), &_hunt_state_s);
+        /* publish current hunt state */
+        orb_publish(ORB_ID(hunt_state), _hunt_state_pub, &_hunt_state_s);
 	}
 }
 
@@ -472,11 +472,11 @@ Hunt::publish_status()
 void
 Hunt::update_local_position()
 {
-	if (_local_pos_sub > 0) {
-		orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
+    if (_local_pos_sub < 0) {
+        _local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
+        orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
 	} else {
-		_local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
-		orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
+        orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
 	}
 
 }
@@ -514,7 +514,7 @@ void
 Hunt::rotate()
 {
 	/* change the hunt state to rotate */
-	_hunt_state = HUNT_STATE_ROTATE;
+    _hunt_state = hunt_state_s::HUNT_STATE_ROTATE;
 
 	/* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
@@ -656,7 +656,7 @@ void
 Hunt::move_to_start()
 {
 	// set the hunt state to move (since we are moving)
-	_hunt_state = HUNT_STATE_MOVE;
+    _hunt_state = hunt_state_s::HUNT_STATE_MOVE;
 
 	/* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
