@@ -1,0 +1,1 @@
+uint8 cmd_reached		# Sequence of the mission item which has been reached

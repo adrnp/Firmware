@@ -288,3 +288,21 @@ ORB_DEFINE(tracking_status, struct tracking_status_s);
 
 #include "topics/hunt_state.h"
 ORB_DEFINE(hunt_state, struct hunt_state_s);
+
+#include "topics/apnt_position.h"
+ORB_DEFINE(apnt_position, struct apnt_position_s);
+
+#include "topics/tracking_cmd.h"
+ORB_DEFINE(tracking_cmd, struct tracking_cmd_s);
+
+#include "topics/hunt_result.h"
+ORB_DEFINE(hunt_result, struct hunt_result_s);
+
+#include "topics/temp_hunt_result.h"
+ORB_DEFINE(temp_hunt_result, struct temp_hunt_result_s);
+
+#include "topics/hunt_bearing.h"
+ORB_DEFINE(hunt_bearing, struct hunt_bearing_s);
+
+#include "topics/hunt_rssi.h"
+ORB_DEFINE(hunt_rssi, struct hunt_rssi_s);
