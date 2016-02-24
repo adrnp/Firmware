@@ -68,7 +68,7 @@ PARAM_DEFINE_FLOAT(HUNT_YAW_STEP, 120.0f);
  * The latitude in decimal degrees of the starting location for hunting.
  *
  * @unit degrees
- * @min 0.0
+ * @min -180.0
  * @group Hunt Params
  */
 PARAM_DEFINE_FLOAT(HUNT_STRT_LAT,  37.423703f);
@@ -79,7 +79,7 @@ PARAM_DEFINE_FLOAT(HUNT_STRT_LAT,  37.423703f);
  * The longitude in decimal degrees of the starting location for hunting.
  *
  * @unit degrees
- * @min 0.0
+ * @min -180.0
  * @group Hunt Params
  */
 PARAM_DEFINE_FLOAT(HUNT_STRT_LON, -122.176883f);
