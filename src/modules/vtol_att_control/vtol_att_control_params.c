@@ -35,10 +35,8 @@
  * @file vtol_att_control_params.c
  * Parameters for vtol attitude controller.
  *
- * @author Roman Bapst <bapstr@ethz.ch>
+ * @author Roman Bapst <roman@px4.io>
  */
-
-#include <systemlib/param/param.h>
 
 /**
  * VTOL number of engines
@@ -143,10 +141,10 @@ PARAM_DEFINE_FLOAT(VT_PROP_EFF, 0.0f);
 PARAM_DEFINE_FLOAT(VT_ARSP_LP_GAIN, 0.3f);
 
 /**
- * VTOL Type (Tailsitter=0, Tiltrotor=1)
+ * VTOL Type (Tailsitter=0, Tiltrotor=1, Standard=2)
  *
  * @min 0
- * @max 1
+ * @max 2
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_INT32(VT_TYPE, 0);
@@ -161,3 +159,97 @@ PARAM_DEFINE_INT32(VT_TYPE, 0);
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 0);
+
+/**
+ * Duration of a front transition
+ *
+ * Time in seconds used for a transition
+ *
+ * @min 0.0
+ * @max 5
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_F_TRANS_DUR, 3.0f);
+
+/**
+ * Duration of a back transition
+ *
+ * Time in seconds used for a back transition
+ *
+ * @min 0.0
+ * @max 5
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_B_TRANS_DUR, 2.0f);
+
+/**
+ * Transition blending airspeed
+ *
+ * Airspeed at which we can start blending both fw and mc controls. Set to 0 to disable.
+ *
+ * @min 0.0
+ * @max 20.0
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_ARSP_BLEND, 8.0f);
+
+/**
+ * Transition airspeed
+ *
+ * Airspeed at which we can switch to fw mode
+ *
+ * @min 1.0
+ * @max 20
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_ARSP_TRANS, 10.0f);
+
+/**
+ * Enable optimal recovery strategy for pitch-weak tailsitters
+ *
+ * @min 0
+ * @max 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_OPT_RECOV_EN, 0);
+
+/**
+ * Enable weather-vane mode landings for missions
+ *
+ * @min 0
+ * @max 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_WV_LND_EN, 0);
+
+/**
+ * Weather-vane yaw rate scale.
+ *
+ * The desired yawrate from the controller will be scaled in order to avoid
+ * yaw fighting against the wind.
+ *
+ * @min 0
+ * @max 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_WV_YAWR_SCL, 0.15f);
+
+/**
+ * Enable weather-vane mode for loiter
+ *
+ * @min 0
+ * @max 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(VT_WV_LTR_EN, 0);
+
+/**
+ * Front transition timeout
+ *
+ * Time in seconds after which transition will be cancelled. Disabled if set to 0.
+ *
+ * @min 0.0
+ * @max 30.0
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_TRANS_TIMEOUT, 15.0f);

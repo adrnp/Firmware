@@ -42,7 +42,14 @@
 #pragma once
 
 #include <stdbool.h>
+#ifdef __PX4_NUTTX
 #include <nuttx/fs/fs.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <drivers/device/device.h>
+#endif
 #include <systemlib/param/param.h>
 #include <systemlib/perf_counter.h>
 #include <pthread.h>
@@ -60,8 +67,19 @@
 #include "mavlink_mission.h"
 #include "mavlink_parameters.h"
 #include "mavlink_ftp.h"
+#include "mavlink_log_handler.h"
 
+enum Protocol {
+	SERIAL = 0,
+	UDP,
+	TCP,
+};
+
+#ifdef __PX4_NUTTX
 class Mavlink
+#else
+class Mavlink : public device::VDev
+#endif
 {
 
 public:
@@ -95,7 +113,9 @@ public:
 
 	static Mavlink		*get_instance(unsigned instance);
 
-	static Mavlink		*get_instance_for_device(const char *device_name);
+	static Mavlink 		*get_instance_for_device(const char *device_name);
+
+	static Mavlink 		*get_instance_for_network_port(unsigned long port);
 
 	static int		destroy_all_instances();
 
@@ -129,7 +149,9 @@ public:
 		MAVLINK_MODE_NORMAL = 0,
 		MAVLINK_MODE_CUSTOM,
 		MAVLINK_MODE_ONBOARD,
-		MAVLINK_MODE_OSD
+		MAVLINK_MODE_OSD,
+		MAVLINK_MODE_MAGIC,
+		MAVLINK_MODE_CONFIG
 	};
 
 	void			set_mode(enum MAVLINK_MODE);
@@ -190,6 +212,11 @@ public:
 	void			set_manual_input_mode_generation(bool generation_enabled) { _generate_rc = generation_enabled; }
 
 	/**
+	 * Set communication protocol for this mavlink instance
+	 */
+	void 		set_protocol(Protocol p) {_protocol = p;};
+
+	/**
 	 * Get the manual input generation mode
 	 *
 	 * @return true if manual inputs should generate RC data
@@ -209,12 +236,14 @@ public:
 
 	int			get_instance_id();
 
+#ifndef __PX4_QURT
 	/**
 	 * Enable / disable hardware flow control.
 	 *
 	 * @param enabled	True if hardware flow control should be enabled
 	 */
 	int			enable_flow_control(bool enabled);
+#endif
 
 	mavlink_channel_t	get_channel();
 
@@ -261,6 +290,8 @@ public:
 
 	float			get_rate_mult();
 
+	float			get_baudrate() { return _baudrate; }
+
 	/* Functions for waiting to start transmission until message received. */
 	void			set_has_received_messages(bool received_messages) { _received_messages = received_messages; }
 	bool			get_has_received_messages() { return _received_messages; }
@@ -302,7 +333,28 @@ public:
 
 	unsigned		get_system_type() { return _system_type; }
 
+	Protocol 		get_protocol() { return _protocol; }
+
+	unsigned short		get_network_port() { return _network_port; }
+
+	unsigned short		get_remote_port() { return _remote_port; }
+
+	int 			get_socket_fd () { return _socket_fd; };
+#ifdef __PX4_POSIX
+	struct sockaddr_in *	get_client_source_address() { return &_src_addr; }
+
+	void			set_client_source_initialized() { _src_addr_initialized = true; }
+
+	bool			get_client_source_initialized() { return _src_addr_initialized; }
+#else
+	bool			get_client_source_initialized() { return true; }
+#endif
+
+	uint64_t		get_start_time() { return _mavlink_start_time; }
+
 	static bool		boot_complete() { return _boot_complete; }
+
+	bool			is_usb_uart() { return _is_usb_uart; }
 
 protected:
 	Mavlink			*next;
@@ -320,8 +372,8 @@ private:
 	bool			_use_hil_gps;		/**< Accept GPS HIL messages (for example from an external motion capturing system to fake indoor gps) */
 	bool			_forward_externalsp;	/**< Forward external setpoint messages to controllers directly if in offboard mode */
 	bool			_is_usb_uart;		/**< Port is USB */
-	bool        		_wait_to_transmit;  	/**< Wait to transmit until received messages. */
-	bool        		_received_messages;	/**< Whether we've received valid mavlink messages. */
+	bool			_wait_to_transmit;  	/**< Wait to transmit until received messages. */
+	bool			_received_messages;	/**< Whether we've received valid mavlink messages. */
 
 	unsigned		_main_loop_delay;	/**< mainloop delay, depends on data rate */
 
@@ -331,6 +383,7 @@ private:
 	MavlinkMissionManager		*_mission_manager;
 	MavlinkParametersManager	*_parameters_manager;
 	MavlinkFTP			*_mavlink_ftp;
+	MavlinkLogHandler		*_mavlink_log_handler;
 
 	MAVLINK_MODE 		_mode;
 
@@ -344,13 +397,15 @@ private:
 
 	bool			_verbose;
 	bool			_forwarding_on;
-	bool			_passing_on;
 	bool			_ftp_on;
+#ifndef __PX4_QURT
 	int			_uart_fd;
+#endif
 	int			_baudrate;
 	int			_datarate;		///< data rate for normal streams (attitude, position, etc.)
 	int			_datarate_events;	///< data rate for params, waypoints, text messages
 	float			_rate_mult;
+	hrt_abstime		_last_hw_rate_timestamp;
 
 	/**
 	 * If the queue index is not at 0, the queue sending
@@ -363,10 +418,12 @@ private:
 
 	char 			*_subscribe_to_stream;
 	float			_subscribe_to_stream_rate;
+	bool 			_udp_initialised;
 
 	bool			_flow_control_enabled;
 	uint64_t		_last_write_success_time;
 	uint64_t		_last_write_try_time;
+	uint64_t		_mavlink_start_time;
 
 	unsigned		_bytes_tx;
 	unsigned		_bytes_txerr;
@@ -375,6 +432,18 @@ private:
 	float			_rate_tx;
 	float			_rate_txerr;
 	float			_rate_rx;
+
+#ifdef __PX4_POSIX
+	struct sockaddr_in _myaddr;
+	struct sockaddr_in _src_addr;
+	struct sockaddr_in _bcast_addr;
+	bool _src_addr_initialized;
+
+#endif
+	int _socket_fd;
+	Protocol	_protocol;
+	unsigned short _network_port;
+	unsigned short _remote_port;
 
 	struct telemetry_status_s	_rstatus;			///< receive status
 
@@ -405,9 +474,15 @@ private:
 
 	void			mavlink_update_system();
 
-	int			mavlink_open_uart(int baudrate, const char *uart_name, struct termios *uart_config_original, bool *is_usb);
+#ifndef __PX4_QURT
+	int			mavlink_open_uart(int baudrate, const char *uart_name, struct termios *uart_config_original);
+#endif
 
 	static unsigned int	interval_from_rate(float rate);
+
+	static constexpr unsigned RADIO_BUFFER_CRITICAL_LOW_PERCENTAGE = 25;
+	static constexpr unsigned RADIO_BUFFER_LOW_PERCENTAGE = 35;
+	static constexpr unsigned RADIO_BUFFER_HALF_PERCENTAGE = 50;
 
 	int configure_stream(const char *stream_name, const float rate);
 
@@ -437,7 +512,13 @@ private:
 	 */
 	void update_rate_mult();
 
+	void init_udp();
+
+#ifdef __PX4_NUTTX
 	static int	mavlink_dev_ioctl(struct file *filep, int cmd, unsigned long arg);
+#else
+	virtual int	ioctl(device::file_t *filp, int cmd, unsigned long arg);
+#endif
 
 	/**
 	 * Main mavlink task.
