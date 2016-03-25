@@ -48,7 +48,7 @@ int everything_is_awesome_main(int argc, char *argv[]) {
 	struct hunt_state_s hunt_state;
 	memset(&hunt_state, 0, sizeof(hunt_state));
 	hunt_state.hunt_mode_state = HUNT_STATE_WAIT;
-	int hunt_state_pub = orb_advertise(ORB_ID(hunt_state), &hunt_state);
+    orb_advert_t hunt_state_pub = orb_advertise(ORB_ID(hunt_state), &hunt_state);
 
 	// only listen to the status once a second
 	orb_set_interval(apnt_sub_fd, 1000);

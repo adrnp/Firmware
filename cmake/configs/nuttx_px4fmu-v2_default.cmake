@@ -162,6 +162,11 @@ set(config_module_list
 
 	# Hardware test
 	#examples/hwtest
+
+        #
+        # Jager testing apps
+        #
+        modules/everything_is_awesome
 )
 
 set(config_extra_builtin_cmds
