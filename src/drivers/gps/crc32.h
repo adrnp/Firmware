@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2012 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012, 2013 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,46 +32,28 @@
  ****************************************************************************/
 
 /**
- * @file drv_gps.h
+ * @file crc32.cpp
  *
- * GPS driver interface.
+ * @author Adrien Perkins <adrienp@stanford.edu>
  */
 
-#ifndef _DRV_GPS_H
-#define _DRV_GPS_H
+#ifndef CRC32_H
+#define CRC32_H
 
-#include <stdint.h>
-#include <sys/ioctl.h>
+#define CRC32_POLYNOMIAL 0xedb88320
 
-#include "board_config.h"
+class CRC32
+{
+public:
+    CRC32();
+    ~CRC32();
+    void init();
+    void add_byte(const uint8_t c);
+    uint32_t get_crc32();
+private:
 
-#include "drv_sensor.h"
-#include "drv_orb_dev.h"
+    /* the current crc value in calculation NOTE: THIS IS NOT THE FINAL CRC */
+    uint32_t _current_crc;
+};
 
-#ifndef GPS_DEFAULT_UART_PORT
-#define GPS_DEFAULT_UART_PORT "/dev/ttyS3"
-#endif
-
-#define GPS0_DEVICE_PATH	"/dev/gps0"
-
-typedef enum {
-	GPS_DRIVER_MODE_NONE = 0,
-	GPS_DRIVER_MODE_UBX,
-	GPS_DRIVER_MODE_MTK,
-    GPS_DRIVER_MODE_ASHTECH,
-    GPS_DRIVER_MODE_LBMP
-} gps_driver_mode_t;
-
-
-/*
- * ObjDev tag for GPS data.
- */
-ORB_DECLARE(gps);
-
-/*
- * ioctl() definitions
- */
-#define _GPSIOCBASE			(0x2800)            //TODO: arbitrary choice...
-#define _GPSIOC(_n)		(_IOC(_GPSIOCBASE, _n))
-
-#endif /* _DRV_GPS_H */
+#endif // CRC32_H

@@ -138,7 +138,7 @@ set(config_module_list
 	#
 	# Rover apps
 	#
-	examples/rover_steering_control
+        #examples/rover_steering_control
 
 	#
 	# Demo apps
@@ -167,6 +167,7 @@ set(config_module_list
         # Jager testing apps
         #
         modules/everything_is_awesome
+        modules/lbmp_test
 )
 
 set(config_extra_builtin_cmds

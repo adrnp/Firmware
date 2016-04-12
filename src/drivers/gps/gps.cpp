@@ -69,6 +69,7 @@
 #include "ubx.h"
 #include "mtk.h"
 #include "ashtech.h"
+#include "lbmp.h"
 
 
 #define TIMEOUT_5HZ 500
@@ -171,7 +172,7 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info) :
 	_task_should_exit(false),
 	_healthy(false),
 	_mode_changed(false),
-	_mode(GPS_DRIVER_MODE_UBX),
+    _mode(GPS_DRIVER_MODE_LBMP/*GPS_DRIVER_MODE_UBX*/),
 	_Helper(nullptr),
 	_Sat_Info(nullptr),
 	_report_gps_pos_pub(nullptr),
@@ -347,6 +348,10 @@ GPS::task_main()
 				_Helper = new ASHTECH(_serial_fd, &_report_gps_pos, _p_report_sat_info);
 				break;
 
+            case GPS_DRIVER_MODE_LBMP:
+                _Helper = new LBMP(_serial_fd, &_report_gps_pos);
+                break;
+
 			default:
 				break;
 			}
@@ -363,7 +368,7 @@ GPS::task_main()
 				/* reset report */
 				memset(&_report_gps_pos, 0, sizeof(_report_gps_pos));
 
-				if (_mode == GPS_DRIVER_MODE_UBX) {
+                if (_mode == GPS_DRIVER_MODE_UBX || _mode == GPS_DRIVER_MODE_LBMP) {
 					/* Publish initial report that we have access to a GPS,
 					 * but set all critical state fields to indicate we have
 					 * no valid position lock
@@ -433,7 +438,7 @@ GPS::task_main()
 						_Helper->reset_update_rates();
 					}
 
-					if (!_healthy) {
+                    if (!_healthy) {
 						const char *mode_str = "unknown";
 
 						switch (_mode) {
@@ -448,6 +453,10 @@ GPS::task_main()
 						case GPS_DRIVER_MODE_ASHTECH:
 							mode_str = "ASHTECH";
 							break;
+
+                        case GPS_DRIVER_MODE_LBMP:
+                            mode_str = "LBMP";
+                            break;
 
 						default:
 							break;
@@ -480,8 +489,12 @@ GPS::task_main()
 				break;
 
 			case GPS_DRIVER_MODE_ASHTECH:
-				_mode = GPS_DRIVER_MODE_UBX;
+                _mode = GPS_DRIVER_MODE_LBMP;
 				break;
+
+            case GPS_DRIVER_MODE_LBMP:
+                _mode = GPS_DRIVER_MODE_UBX;
+                break;
 
 			default:
 				break;
@@ -535,6 +548,10 @@ GPS::print_info()
 		case GPS_DRIVER_MODE_ASHTECH:
 			warnx("protocol: ASHTECH");
 			break;
+
+        case GPS_DRIVER_MODE_LBMP:
+            warnx("protocol: LBMP");
+            break;
 
 		default:
 			break;

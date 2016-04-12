@@ -31,19 +31,14 @@
 #
 ############################################################################
 px4_add_module(
-	MODULE drivers__gps
-	MAIN gps
+	MODULE modules__lbmp_test
+	MAIN lbmp_test
 	STACK 1200
 	COMPILE_FLAGS
+		-Wno-sign-compare
 		-Os
 	SRCS
-		gps.cpp
-		gps_helper.cpp
-		mtk.cpp
-		ashtech.cpp
-		ubx.cpp
-                lbmp.cpp
-                crc32.cpp
+		lbmp_test.cpp
 	DEPENDS
 		platforms__common
 	)
