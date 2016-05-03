@@ -89,12 +89,12 @@ int
 LBMP::configure(unsigned &baudrate)
 {
     /* set baudrate first */
-    if (GPS_Helper::set_baudrate(_fd, LBMP_BAUDRATE) != 0) {
+    if (GPS_Helper::set_baudrate(_fd, baudrate) != 0) {
         printf("unable to set baudrate\n");
         return -1;
     }
 
-    baudrate = LBMP_BAUDRATE;
+    //baudrate = LBMP_BAUDRATE;
 
     return 0;
 }
@@ -108,7 +108,7 @@ LBMP::receive(unsigned timeout)
     fds[0].fd = _fd;
     fds[0].events = POLLIN;
 
-    uint8_t buf[128];
+    //uint8_t buf[32];
     //uint8_t buf[1];
 
     /* timeout additional to poll */
@@ -118,6 +118,7 @@ LBMP::receive(unsigned timeout)
     int handled = 0;
 
     printf("[LBMP] reading....\n");
+    uint8_t c;
 
     while (true) {
 
@@ -143,20 +144,28 @@ LBMP::receive(unsigned timeout)
                  * by 1-2 bytes, wait for some more data to save expensive read() calls.
                  * If more bytes are available, we'll go back to poll() again.
                  */
-                usleep(LBMP_WAIT_BEFORE_READ * 1000);
-                count = ::read(_fd, buf, sizeof(buf));
+                //usleep(5 * 1000);
+                //count = read(_fd, buf, sizeof(buf));
+                count = ::read(_fd, &c, 1);
 
-                //printf("[LBMP] read %d bytes\n", count);
+                // printf("[LBMP] read %d bytes\n", count);
+                //printf("  [%d]  ", count);
+                printf("%02x ", c);
+                count++;
 
                 /* pass received bytes to the packet decoder */
+                /*
                 for (int i = 0; i < count; i++) {
                     //handled |= parse_char(buf[i]);
+
                     handled = parse_char(buf[i]);
                     if (handled > 0) {
                         printf("[LBMP] handled > 0\n");
                     }
 
-                }
+                    printf("%02x ", buf[i]);
+
+                } */
 
                 /* new message completed, return */
                 if (handled) {
@@ -208,22 +217,21 @@ LBMP::decode_checksum_reinit()
     _Crc32->init();
 }
 
-
 int  // 0 = decoding, 1 = message handled, 2 = "sat" message handled
 LBMP::parse_char(const uint8_t c)
 {
     int ret = 0;  // default to still decoding
 
+    // DEBUG
+    printf("%02x ", c);
+
     switch(_decode_state) {
 
     /* Expecting Sync message */
     case LBMP_DECODE_SYNC:
-        //printf("A");
-        //printf("%02X ", c);
 
         if (c == LBMP_SYNC[_sync_index]) {	// got a sync byte
             _sync_index++;
-            printf("%02x ", c);
         } else {	// reset
             _sync_index = 0;
         }
@@ -236,7 +244,7 @@ LBMP::parse_char(const uint8_t c)
             _decode_state = LBMP_DECODE_HEADER;
 
             // DEBUG
-            printf("[LBMP] head\n");
+            //printf("\n[LBMP] going to head\n");
 
             // need to add the 4 sync bytes to the crc calculation
             for (int i = 0; i < 4; i ++) {
@@ -249,8 +257,6 @@ LBMP::parse_char(const uint8_t c)
     /* Expecting Header */
     case LBMP_DECODE_HEADER:
 
-        printf("%02X ", c);
-
         ret = payload_rx_add_block(c);  // add to buffer
         _Crc32->add_byte(c);			// add to checksum
 
@@ -261,7 +267,7 @@ LBMP::parse_char(const uint8_t c)
             _payload_length = _buf.header.payloadLength;
 
             // DEBUG
-            printf("[LBMP] head checksum\n");
+            //printf("\n[LBMP] going to head checksum\n");
 
             // move to the header checksum decode state
             _decode_state = LBMP_DECODE_HEADER_CHECKSUM;
@@ -273,8 +279,6 @@ LBMP::parse_char(const uint8_t c)
     /* Expecting Header Checksum */
     case LBMP_DECODE_HEADER_CHECKSUM:
 
-        printf("%02X ", c);
-
         ret = checksum_rx_add(c);	// add to incoming checksum buffer
 
         // check if completed the checksum bytes
@@ -283,15 +287,17 @@ LBMP::parse_char(const uint8_t c)
             // retrieve the calculated checksum
             uint32_t calculated_checksum = _Crc32->get_crc32();
 
+            // DEBUG
+            //printf("\n[LBMP] checksum: %08x\ncalculated: %08x\n", _chk_buf.checksum, calculated_checksum);
+
+
             /* check checksum */
             if (calculated_checksum != _chk_buf.checksum) {	// error
                 /* wait for next message */
                 ret = 0;
-                //decode_init();
 
                 // DEBUG
-                printf("[LBMP] checksum failed\n");
-                printf("[LBMP] checksum: %08x\ncalculated: %08x\n", _chk_buf.checksum, calculated_checksum);
+                //printf("\n[LBMP] checksum failed\n");
 
                 decode_init();
 
@@ -314,9 +320,12 @@ LBMP::parse_char(const uint8_t c)
                 }
 
                 // DEBUG
-                printf("[LBMP] payload\n");
+                //printf("\n[LBMP] going to payload\n");
 
-                _decode_state = LBMP_DECODE_PAYLOAD;
+                //_decode_state = LBMP_DECODE_PAYLOAD;
+
+                // DEBUG - for now just looking at the header
+                decode_init();
             }
         }
 

@@ -67,15 +67,104 @@
 #include <drivers/gps/lbmp.h>
 #include <drivers/gps/gps_helper.h>
 
-#include <platforms/px4_defines.h>
-
+#include <termios.h>
 
 
 extern "C" __EXPORT int lbmp_test_main(int argc, char *argv[]);
 
+int test_configure(const int &fd, unsigned baud);
 
 
 vehicle_gps_position_s _report_gps_pos;
+
+int test_configure(const int &fd, unsigned baud) {
+
+
+    struct termios  config;
+
+    // attempt to fille the struct for the new config
+    if(tcgetattr(fd, &config) < 0) {
+        // DEBUG
+        printf("no idea, but failed!!!\n");
+        return -1;
+    }
+
+
+    // Input flags - Turn off input processing
+    // convert break to null byte, no CR to NL translation,
+    // no NL to CR translation, don't mark parity errors or breaks
+    // no input parity check, don't strip high bit off,
+    // no XON/XOFF software flow control
+    //
+    //config.c_iflag &= ~(PARMRK | INPCK | ISTRIP | IXON);
+    config.c_iflag &= ~(ISTRIP | IXON);
+
+    // Output flags - Turn off output processing
+    // no CR to NL translation, no NL to CR-NL translation,
+    // no NL to CR translation, no column 0 CR suppression,
+    // no Ctrl-D suppression, no fill characters, no case mapping,
+    // no local output processing
+    //
+    //config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
+    //        ONOCR | OFILL | OPOST);
+    config.c_oflag &= ~ONLCR;
+
+    // No line processing:
+    // echo off, echo newline off, canonical mode off,
+    // extended input processing off, signal chars off
+    //
+    //config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+    config.c_lflag &= ~(ICANON);
+
+
+    // Turn off character processing
+    // clear current char size mask, no parity checking,
+    // no output processing, force 8 bit input
+    //
+    //config.c_cflag &= ~(CSIZE | PARENB);
+    config.c_cflag &= ~(CSTOPB | PARENB);
+    //config.c_cflag |= CS8;
+
+
+    // One input byte is enough to return from read()
+    // Inter-character timer off
+    //
+    config.c_cc[VMIN]  = 10;
+    //config.c_cc[VTIME] = 10; // was 0
+
+    // configure for the desired baud rate
+    int speed;
+    switch (baud) {
+    case 9600:   speed = B9600;   break;
+
+    case 19200:  speed = B19200;  break;
+
+    case 38400:  speed = B38400;  break;
+
+    case 57600:  speed = B57600;  break;
+
+    case 115200: speed = B115200; break;
+
+    default:
+        printf("ERR: baudrate: %d\n", baud);
+        return -EINVAL;
+    }
+
+    if (cfsetispeed(&config, speed) < 0 || cfsetospeed(&config, speed) < 0) {
+        printf("\nERROR: Could not set desired baud rate of %d Baud\n", baud);
+        return -1;
+    }
+
+    // Finally, apply the configuration
+    //
+    if(tcsetattr(fd, TCSANOW, &config) < 0)
+    {
+       printf("\nERROR: could not set configuration of fd\n");
+        return -1;
+    }
+
+    return 0;
+}
 
 
 // the main script
@@ -88,6 +177,7 @@ int lbmp_test_main(int argc, char **argv) {
 
 
     char* uart_name = (char*) "/dev/ttyS6";
+    unsigned baudrate = 57600;
     unsigned timeout = 1000;
 
     // retrieve the user input (serial port)
@@ -100,6 +190,13 @@ int lbmp_test_main(int argc, char **argv) {
             }
         }
 
+        /* baudrate */
+        if (strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--baudrate") == 0) {
+            if (argc > i + 1) {
+                baudrate = (unsigned) atoi(argv[i + 1]);
+            }
+        }
+
         /* timeout interval */
         if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--timeout") == 0) {
             if (argc > i + 1) {
@@ -109,7 +206,6 @@ int lbmp_test_main(int argc, char **argv) {
     }
 
     // connect to the serial port
-    unsigned baudrate = 115200;
     int serial_fd = ::open(uart_name, O_RDWR);
 
     if (serial_fd < 0) {
@@ -120,8 +216,12 @@ int lbmp_test_main(int argc, char **argv) {
     // create the LBMP parser
     GPS_Helper *_Helper = new LBMP(serial_fd, &_report_gps_pos);
 
+
+
+
+
     int helper_ret;
-    if (_Helper->configure(baudrate) == 0) {
+    if (/*_Helper->configure(baudrate)*/ test_configure(serial_fd, baudrate) == 0) {
         printf("configuration successful\n");
 
         // do 1 receive
