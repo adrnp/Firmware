@@ -184,6 +184,10 @@ private:
 	bool	_in_rotation;					/**< true if in a rotation already, false otherwise */
 	bool	_allow_rotation_end;			/**< if true will start checking to see if we have reached the mission item */
 
+    /* new rotation calculation */
+    float _start_rotation_angle;    /**< the heading at the start of a rotation */
+    float _new_total_rotation;      /**< the total rotation so far */
+
 	hrt_abstime _temp_time;
 	hrt_abstime _test_time;
 	hrt_abstime _ref_timestamp;	// timestamp the reference position was taken at

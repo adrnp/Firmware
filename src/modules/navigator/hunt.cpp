@@ -52,6 +52,8 @@ Hunt::Hunt(Navigator *navigator, const char *name) :
 	_prev_yaw(0),
 	_in_rotation(false),
 	_allow_rotation_end(false),
+    _start_rotation_angle(0),
+    _new_total_rotation(0),
 
 /* time */
 	_temp_time(hrt_absolute_time()),
@@ -207,7 +209,26 @@ Hunt::on_active()
 				float prevYaw2pi = _wrap_2pi(_prev_yaw);
 				float dtheta = math::min(fabsf(prevYaw2pi - currentYaw2pi), _wrap_2pi((M_TWOPI_F - prevYaw2pi) + currentYaw2pi));
 				_total_rotation += dtheta;
-				mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_total_rotation));
+                //mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_total_rotation));
+
+                // new calculation of total rotation
+                if (_current_rotation_direction > 0) {  // clockwise rotation
+
+                    if (_start_rotation_angle < currentYaw2pi) {
+                        _new_total_rotation = currentYaw2pi - _start_rotation_angle;
+                    } else {
+                        _new_total_rotation = (M_TWOPI_F - _start_rotation_angle) + currentYaw2pi;
+                    }
+
+                } else {    // counterclockwise rotation
+
+                    if (_start_rotation_angle < currentYaw2pi) {
+                        _new_total_rotation = _start_rotation_angle + (M_TWOPI_F - currentYaw2pi);
+                    } else {
+                        _new_total_rotation = _start_rotation_angle - currentYaw2pi;
+                    }
+                }
+                mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_new_total_rotation));
 
 				// determine the total rotation threshold
 				// TODO: this should be done elsewhere!!!
@@ -219,7 +240,7 @@ Hunt::on_active()
 
 				// want to limit to 1 rotation, so only continue rotation if not going to complete 1 full rotation
 				if (_total_rotation < threshold) {
-					continue_rotation();
+                    continue_rotation();
 				} else { // DEBUG
 					// TESTING
 					// _tracking_cmd.yaw_angle = -1.0;
@@ -580,6 +601,9 @@ Hunt::start_rotation()
 	_end_rotation_angle = _navigator->get_global_position()->yaw; // want to rotate 360 degrees
 	_prev_yaw = _navigator->get_global_position()->yaw;
 	_total_rotation = 0.0f;
+
+    _start_rotation_angle = _wrap_2pi(_navigator->get_global_position()->yaw);
+    _new_total_rotation = 0.0f;
 
 	// get the data from the tracking command (which direction to rotate)
 	_current_rotation_direction = (int) _tracking_cmd.yaw_angle;
