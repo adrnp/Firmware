@@ -101,6 +101,9 @@ Hunt::on_activation()
 	if (!_started) { // hunt not started, meaning this is the first time we have activated hunt
 		// go to start position
 
+        /* send a message that hunt mode has been activated */
+        mavlink_log_info(_navigator->get_mavlink_fd(), "#audio: hunt started");
+
 		// set the state to moving to first position
 		// XXX: maybe don't need state start, and just set it to state move here
 		// _hunt_state = HUNT_STATE_START;
