@@ -1981,8 +1981,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.msg_type = LOG_TCMD_MSG;
 			log_msg.body.log_TCMD.cmd_id = buf.tracking_cmd.cmd_id;
 			log_msg.body.log_TCMD.cmd_type = buf.tracking_cmd.cmd_type;
-			log_msg.body.log_TCMD.north = (float) buf.tracking_cmd.north;
-			log_msg.body.log_TCMD.east = (float) buf.tracking_cmd.east;
+            log_msg.body.log_TCMD.north = buf.tracking_cmd.north;
+            log_msg.body.log_TCMD.east = buf.tracking_cmd.east;
 			log_msg.body.log_TCMD.yaw_angle = buf.tracking_cmd.yaw_angle;
 			log_msg.body.log_TCMD.altitude = buf.tracking_cmd.altitude;
 			LOGBUFFER_WRITE_AND_COUNT(TCMD);

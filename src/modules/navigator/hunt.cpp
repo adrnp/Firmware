@@ -294,13 +294,16 @@ Hunt::set_next_item()
 
         _hunt_state = hunt_state_s::HUNT_STATE_MOVE;    // update state
 
+
+        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] cmnd (%d): N: %0.1f, E:%0.1f, A: %0.1f", _tracking_cmd.cmd_id, (double)_tracking_cmd.north, (double)_tracking_cmd.east, (double)_tracking_cmd.altitude);
+
         // update mission items
-        /*
+
         set_mission_latlon();                       // set the lat/lon for mission item (from N,E)
         _mission_item.yaw = math::radians(270.0f);	// for now just go with point west
         _mission_item.altitude_is_relative = false;         // abs altitudes
         _mission_item.altitude = _tracking_cmd.altitude;
-        */
+
 		break;
 
     /* rotation commanded */
@@ -402,11 +405,24 @@ Hunt::set_mission_latlon()
 
     mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] desired local pos (%f, %f)", (double) north_desired, (double) east_desired);
 
+    // default to moving to the starting position
+    _mission_item.lat = (double) _param_start_lat.get();
+    _mission_item.lon = (double) _param_start_lon.get();
+
+    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] refernce loc (%f, %f)", _ref_pos.lat_rad, _ref_pos.lon_rad);
+
     // now need to convert from the local frame to lat lon, will also directly set it
     // to the mission item while we are at it
-    map_projection_reproject(&_ref_pos, north_desired, east_desired, &_mission_item.lat, &_mission_item.lon);
-
-    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] desired loc (%f, %f)", _mission_item.lat, _mission_item.lon);
+    double next_lat;
+    double next_lon;
+    if (map_projection_reproject(&_ref_pos, north_desired, east_desired, &next_lat, &next_lon) == 0) {
+        _mission_item.lat = next_lat;
+        _mission_item.lon = next_lon;
+        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] desired loc (%f, %f)", _mission_item.lat, _mission_item.lon);
+    } else {
+        // error
+        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] unable to do reprojection");
+    }
 }
 
 

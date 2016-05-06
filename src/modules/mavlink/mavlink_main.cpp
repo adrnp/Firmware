@@ -1813,7 +1813,7 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("NAMED_VALUE_FLOAT", 10.0f);
 
 		// tracking stuff
-		configure_stream("TRACKING_STATUS", 1.0f);
+        configure_stream("TRACKING_STATUS", 5.0f);
 		configure_stream("HUNT_MISSION_REACHED", 1.0f);
 		break;
 

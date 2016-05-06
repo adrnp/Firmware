@@ -565,9 +565,9 @@ struct log_HUNT_s {
 #define LOG_TCMD_MSG 69
 struct log_TCMD_s {
 	uint8_t cmd_id;
-	uint8_t cmd_type;
-	double north;
-	double east;
+    uint16_t cmd_type;
+    float north;
+    float east;
 	float yaw_angle;
 	float altitude;
 };
@@ -656,7 +656,7 @@ static const struct log_format_s log_formats[] = {
 	LOG_FORMAT(WIND, "ffff",	"X,Y,CovX,CovY"),
 	LOG_FORMAT(ENCD, "qfqf",	"cnt0,vel0,cnt1,vel1"),
 	LOG_FORMAT(HUNT, "B",	"HuntState"),
-	LOG_FORMAT(TCMD, "BBffff",	"id,type,N,E,yaw,alt"),
+    LOG_FORMAT(TCMD, "BHffff",	"id,type,N,E,yaw,alt"),
 	LOG_FORMAT(TSYN, "Q", 		"TimeOffset"),
 	LOG_FORMAT(MACS, "fff", "RRint,PRint,YRint"),
 
