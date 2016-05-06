@@ -131,7 +131,6 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
     _apnt_site_status_pub(nullptr),
     _tracking_status_pub(nullptr),
     _tracking_cmd_pub(nullptr),
-    _temp_hunt_result_pub(nullptr), // TEMPORARY
     _apnt_position_pub(nullptr),
     _bearing_pub(nullptr),
     _bearing_mle_pub(nullptr),
@@ -255,10 +254,6 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 
 	case MAVLINK_MSG_ID_TRACKING_CMD:
 		handle_message_tracking_cmd(msg);
-		break;
-
-	case MAVLINK_MSG_ID_HUNT_MISSION_REACHED:
-		handle_message_hunt_reached(msg);
 		break;
 
 	case MAVLINK_MSG_ID_BEARING_CC:
@@ -1917,24 +1912,6 @@ MavlinkReceiver::handle_message_tracking_cmd(mavlink_message_t *msg) {
 		orb_publish(ORB_ID(tracking_cmd), _tracking_cmd_pub, &track_cmd_s);
 	}
 
-}
-
-// THIS IS A TEMPORARY FUNCTION
-void
-MavlinkReceiver::handle_message_hunt_reached(mavlink_message_t *msg) {
-	mavlink_hunt_mission_reached_t hmr;
-	mavlink_msg_hunt_mission_reached_decode(msg, &hmr);
-
-	struct temp_hunt_result_s result;
-	memset(&result, 0, sizeof(result));
-
-	result.cmd_reached = hmr.reached_cmd_id;
-
-    if (_temp_hunt_result_pub == nullptr) {
-		_temp_hunt_result_pub = orb_advertise(ORB_ID(temp_hunt_result), &result);
-	} else {
-		orb_publish(ORB_ID(temp_hunt_result), _temp_hunt_result_pub, &result);
-	}
 }
 
 void

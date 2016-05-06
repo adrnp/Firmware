@@ -81,7 +81,6 @@
 #include <uORB/topics/hunt_state.h>
 #include <uORB/topics/tracking_cmd.h>
 #include <uORB/topics/apnt_position.h>
-#include <uORB/topics/temp_hunt_result.h> // TEMPORARY
 #include <uORB/topics/hunt_result.h>
 #include <uORB/topics/hunt_bearing.h>
 #include <uORB/topics/hunt_rssi.h>
@@ -3089,7 +3088,6 @@ public:
 	}
 
 private:
-	MavlinkOrbSubscription *temp_hunt_result_sub;
 	MavlinkOrbSubscription *hunt_result_sub;
 	uint64_t time;
 	uint64_t res_time;
@@ -3100,7 +3098,6 @@ private:
 
 protected:
 	explicit MavlinkStreamHuntReached(Mavlink *mavlink) : MavlinkStream(mavlink),
-	temp_hunt_result_sub(_mavlink->add_orb_subscription(ORB_ID(temp_hunt_result))),
 	hunt_result_sub(_mavlink->add_orb_subscription(ORB_ID(hunt_result))),
 		time(0),
 		res_time(0)
@@ -3108,16 +3105,8 @@ protected:
 
 	void send(const hrt_abstime t)
 	{
-		struct temp_hunt_result_s res;
 		struct hunt_result_s real_res;
 
-		if (temp_hunt_result_sub->update(&time, &res)) {
-
-			mavlink_hunt_mission_reached_t msg;
-			msg.reached_cmd_id = res.cmd_reached;
-
-			_mavlink->send_message(MAVLINK_MSG_ID_HUNT_MISSION_REACHED, &msg);
-		}
 		if (hunt_result_sub->update(&res_time, &real_res)) {
 
 			// determine if sending a reached id or current id
