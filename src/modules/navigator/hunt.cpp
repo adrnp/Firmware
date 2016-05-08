@@ -96,6 +96,10 @@ Hunt::on_activation()
 {
 	// called when we hunt mode gets activated
 
+    // send status updates
+    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] moving to start");  // alert to ground
+
+
 	if (!_started) { // hunt not started, meaning this is the first time we have activated hunt
 		// go to start position
 
@@ -403,13 +407,9 @@ Hunt::set_mission_latlon()
     float north_desired = _tracking_cmd.north + _local_pos.x;
     float east_desired = _tracking_cmd.east + _local_pos.y;
 
-    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] desired local pos (%f, %f)", (double) north_desired, (double) east_desired);
-
     // default to moving to the starting position
     _mission_item.lat = (double) _param_start_lat.get();
     _mission_item.lon = (double) _param_start_lon.get();
-
-    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] refernce loc (%f, %f)", _ref_pos.lat_rad, _ref_pos.lon_rad);
 
     // now need to convert from the local frame to lat lon, will also directly set it
     // to the mission item while we are at it
@@ -418,7 +418,6 @@ Hunt::set_mission_latlon()
     if (map_projection_reproject(&_ref_pos, north_desired, east_desired, &next_lat, &next_lon) == 0) {
         _mission_item.lat = next_lat;
         _mission_item.lon = next_lon;
-        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] desired loc (%f, %f)", _mission_item.lat, _mission_item.lon);
     } else {
         // error
         mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] unable to do reprojection");
