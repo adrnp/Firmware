@@ -1,6 +1,7 @@
 uint8 HUNT_CMD_TRAVEL = 1
 uint8 HUNT_CMD_ROTATE = 2
-uint8 HUNT_CMD_FINISH = 3
+uint8 HUNT_CMD_STOP = 3
+uint8 HUNT_CMD_FINISH = 4
 
 uint64 timestamp	# timestamp of the command
 uint8 cmd_type 		# type of command
