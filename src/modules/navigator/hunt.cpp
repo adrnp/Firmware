@@ -46,7 +46,7 @@ Hunt::Hunt(Navigator *navigator, const char *name) :
     _hunt_state_pub(nullptr),
 
 /* rotation handling */
-	_current_rotation_direction(0),
+    _current_rotation_direction(1),
 	_end_rotation_angle(0),
 	_prev_yaw(0),
 	_in_rotation(false),
@@ -283,7 +283,7 @@ Hunt::set_next_item()
 	set_previous_pos_setpoint();
 
 	// update the current cmd id to be that of the new cmd
-    _current_cmd_id = 0;//_tracking_cmd.cmd_id;
+    _current_cmd_id = _tracking_cmd.cmd_id;
 
 
 	// XXX: IMPORTANT
@@ -304,9 +304,16 @@ Hunt::set_next_item()
         // update mission items
 
         set_mission_latlon();                       // set the lat/lon for mission item (from N,E)
-        _mission_item.yaw = math::radians(270.0f);	// for now just go with point west
         _mission_item.altitude_is_relative = false;         // abs altitudes
         _mission_item.altitude = _tracking_cmd.altitude;
+
+        // set the yaw (if given)
+        if (_tracking_cmd.yaw_angle >= 0) {
+            _mission_item.yaw = math::radians(_tracking_cmd.yaw_angle);
+        } else {
+            _mission_item.yaw = math::radians(270.0f);	// default to pointing west
+        }
+
 
 		break;
 
@@ -551,7 +558,7 @@ Hunt::rotate()
 	/* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
-	_current_rotation_direction = 1;
+    _current_rotation_direction = 1;
 
 	/* we want to just sit in one spot */
 	_mission_item.lat = _navigator->get_global_position()->lat;
@@ -617,10 +624,10 @@ Hunt::start_rotation()
     _total_rotation = 0.0f;
 
 	// get the data from the tracking command (which direction to rotate)
-	_current_rotation_direction = (int) _tracking_cmd.yaw_angle;
+    _current_rotation_direction = (int) _tracking_cmd.yaw_angle;
 	if (_current_rotation_direction == 0) {
 		_current_rotation_direction = 1;
-	}
+    }
 
 	/* we want to just sit in one spot at the current altitude */
 	_mission_item.lat = _navigator->get_global_position()->lat;
