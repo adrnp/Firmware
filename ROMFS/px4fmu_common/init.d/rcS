@@ -499,7 +499,7 @@ then
 	
 	# start mavlink for jager
 	mavlink start -d /dev/ttyS2 -b 115200 -m onboard -f
-	mavlink start -d /dev/ttyS6 -b 115200 -m onboard -f
+	#mavlink start -d /dev/ttyS6 -b 115200 -m onboard -f
 
 	#
 	# MAVLink onboard / TELEM2

@@ -284,6 +284,11 @@ public:
     int				receive(unsigned timeout);
     int				configure(unsigned &baudrate);
 
+    /**
+     * Parse the binary LBMP packet
+     */
+    int         parse_char(const uint8_t c);
+
 private:
 
     /**
@@ -293,11 +298,6 @@ private:
     void		decode_block_reinit(const int size);	// new block
     void		decode_checksum_reinit();				// new checksum
 
-
-    /**
-     * Parse the binary LBMP packet
-     */
-    int			parse_char(const uint8_t c);
 
     /**
      * Start payload rx

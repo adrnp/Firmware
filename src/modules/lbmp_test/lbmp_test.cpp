@@ -214,19 +214,43 @@ int lbmp_test_main(int argc, char **argv) {
     }
 
     // create the LBMP parser
-    GPS_Helper *_Helper = new LBMP(serial_fd, &_report_gps_pos);
+    LBMP *_Helper = new LBMP(serial_fd, &_report_gps_pos);
 
 
+    //ssize_t count = 0;
+    //int loop_count = 0;
+    //uint8_t buf[1];
 
-
-
-    int helper_ret;
-    if (/*_Helper->configure(baudrate)*/ test_configure(serial_fd, baudrate) == 0) {
+    int helper_ret = 0;
+    if (_Helper->configure(baudrate) /*test_configure(serial_fd, baudrate)*/ == 0) {
         printf("configuration successful\n");
 
         // do 1 receive
 
        helper_ret = _Helper->receive(timeout);
+
+        // read a bunch of single bytes
+        /*
+        int ret;
+        while (loop_count < timeout) {
+            count = ::read(serial_fd, buf, sizeof(buf));
+
+            if (count > 1) {
+                printf("  [%d]  ", count);    
+            }
+            for (int i = 0; i < count; i++) {
+                //printf("%02x ", buf[i]);
+                ret = _Helper->parse_char(buf[i]);
+                if (ret == 1) {
+                    printf("parsed a message!!!");
+                }
+            }
+
+            loop_count++;
+        }
+
+        printf("[LBMP] read %d bytes\n", count);
+        */
 
        if (helper_ret <= 0) {
            printf("returned error\n");
