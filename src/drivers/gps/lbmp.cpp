@@ -117,8 +117,8 @@ LBMP::receive(unsigned timeout)
     ssize_t count = 0;
     int handled = 0;
 
-    printf("[LBMP] reading....\n");
-    //uint8_t c;
+    // DEBUG
+    //printf("[LBMP] reading....\n");
 
     while (true) {
 
@@ -146,30 +146,14 @@ LBMP::receive(unsigned timeout)
                  */
                 //usleep(5 * 1000);
                 count = read(_fd, buf, sizeof(buf));
-                //count = ::read(_fd, &c, 1);
-
-                // printf("[LBMP] read %d bytes\n", count);
-                //printf("  [%d]  ", count);
-                //printf("%02x ", c);
-                //count++;
 
                 /* pass received bytes to the packet decoder */
-                
                 for (int i = 0; i < count; i++) {
-                    //handled |= parse_char(buf[i]);
-
                     handled |= parse_char(buf[i]);
-                    if (handled > 0) {
-                        printf("[LBMP] handled > 0\n");
-                    }
-
-                    //printf("%02x ", buf[i]);
-
                 }
 
                 /* new message completed, return */
                 if (handled) {
-                    printf("[LBMP] returning handled = %d\n", handled);
                     return handled;
                 }
             }
@@ -187,7 +171,8 @@ LBMP::receive(unsigned timeout)
 void
 LBMP::decode_init()
 {
-    printf("[LBMP] initializing decoding\n");
+    // DEBUG
+    //printf("[LBMP] initializing decoding\n");
 
     /* set state to wait for sync */
     _decode_state = LBMP_DECODE_SYNC;
@@ -223,7 +208,7 @@ LBMP::parse_char(const uint8_t c)
     int ret = 0;  // default to still decoding
 
     // DEBUG
-    printf("%02x ", c);
+    //printf("%02x ", c);
 
     switch(_decode_state) {
 
@@ -244,7 +229,7 @@ LBMP::parse_char(const uint8_t c)
             _decode_state = LBMP_DECODE_HEADER;
 
             // DEBUG
-            printf("\n[LBMP] going to head\n");
+            //printf("\n[LBMP] going to head\n");
 
             // need to add the 4 sync bytes to the crc calculation
             for (int i = 0; i < 4; i ++) {
@@ -267,7 +252,7 @@ LBMP::parse_char(const uint8_t c)
             _payload_length = _buf.header.payloadLength;
 
             // DEBUG
-            printf("\n[LBMP] going to head checksum\n");
+            //printf("\n[LBMP] going to head checksum\n");
 
             // move to the header checksum decode state
             _decode_state = LBMP_DECODE_HEADER_CHECKSUM;
@@ -288,7 +273,7 @@ LBMP::parse_char(const uint8_t c)
             uint32_t calculated_checksum = _Crc32->get_crc32();
 
             // DEBUG
-            printf("\n[LBMP] checksum: %08x\ncalculated: %08x\n", _chk_buf.checksum, calculated_checksum);
+            //printf("\n[LBMP] checksum: %08x\ncalculated: %08x\n", _chk_buf.checksum, calculated_checksum);
 
 
             /* check checksum */
@@ -297,7 +282,7 @@ LBMP::parse_char(const uint8_t c)
                 ret = 0;
 
                 // DEBUG
-                printf("\n[LBMP] checksum failed\n");
+                //printf("\n[LBMP] checksum failed\n");
 
                 decode_init();
 
@@ -320,7 +305,7 @@ LBMP::parse_char(const uint8_t c)
                 }
 
                 // DEBUG
-                printf("\n[LBMP] going to payload\n");
+                //printf("\n[LBMP] going to payload\n");
 
                 _decode_state = LBMP_DECODE_PAYLOAD;
 
@@ -355,7 +340,7 @@ LBMP::parse_char(const uint8_t c)
             _decode_state = LBMP_DECODE_FOOTER;
 
             // DEBUG
-            printf("\n[LBMP] going to payload footer\n");
+            //printf("\n[LBMP] going to payload footer\n");
         }
 
         ret = 0;
@@ -373,18 +358,18 @@ LBMP::parse_char(const uint8_t c)
             uint32_t calculated_checksum = _Crc32->get_crc32();
 
             // DEBUG
-            printf("\n[LBMP] checksum: %08x\ncalculated: %08x\n", _chk_buf.checksum, calculated_checksum);
+            //printf("\n[LBMP] checksum: %08x\ncalculated: %08x\n", _chk_buf.checksum, calculated_checksum);
 
             /* check checksum */
             if (calculated_checksum != _chk_buf.checksum) {	// error
                 ret = 0;
 
                 // DEBUG
-                printf("\n[LBMP] footer checksum failed\n");
+                //printf("\n[LBMP] footer checksum failed\n");
 
             } else {	// match
                 // DEBUG
-                printf("\n[LBMP] message received successfully\n");
+                //printf("\n[LBMP] message received successfully\n");
 
                 ret = payload_rx_done();	// finish payload
             }
@@ -452,7 +437,7 @@ LBMP::payload_rx_add_nav(const uint8_t c)
             _gps_position->alt = _gps_position->alt_ellipsoid + 23.0*1.0e3; // TODO: need to add geoid height as constant
 
             _gps_position->cog_rad = (float)_buf.nav_sol_blk.heading / POW_2_7 * M_DEG_TO_RAD_F;
-            _gps_position->vel_m_s = (float)_buf.nav_sol_blk.heading / POW_2_10;
+            _gps_position->vel_m_s = (float)_buf.nav_sol_blk.sog / POW_2_10;
 
             _gps_position->eph = (float)_buf.nav_sol_blk.hdop / POW_2_7;
             _gps_position->epv = (float)_buf.nav_sol_blk.vdop / POW_2_7;
@@ -460,13 +445,13 @@ LBMP::payload_rx_add_nav(const uint8_t c)
             _gps_position->c_variance_rad = (float)_buf.nav_sol_blk.headingQual / POW_2_7 * M_DEG_TO_RAD_F;
 
             _gps_position->vel_ned_valid = true;
-            _gps_position->fix_type = 3;//(uint8_t)_buf.nav_sol_blk.solutionStatus;
+            _gps_position->fix_type = 3;//(uint8_t)_buf.nav_sol_blk.solutionStatus;  // TODO: capture the actual Locata state here
             _gps_position->satellites_used = _buf.nav_sol_blk.signalsUsed;
 
             // TODO: parse time block information
 
             // DEBUG
-            printf("[LBMP] decoded position: e.g. lat = %d\n", _gps_position->lat);
+            //printf("[LBMP] decoded position: e.g. lat = %d\n", _gps_position->lat);
 
             // if looking at the extended nav solution (right now that's the only one we have coming in)
             _nav_decode_state = LBMP_NAV_DECODE_EXT_BLK;
@@ -535,7 +520,7 @@ LBMP::payload_rx_done(void)
     _gps_position->timestamp_position	= hrt_absolute_time();
 
     // DEBUG
-    printf("[LBMP} payload completed\n");
+    //printf("[LBMP} payload completed\n");
 
     ret = 1;
     return ret;
