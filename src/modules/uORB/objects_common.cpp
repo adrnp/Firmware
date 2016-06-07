@@ -81,6 +81,9 @@ ORB_DEFINE(hil_sensor, struct hil_sensor_s);
 #include "topics/vehicle_gps_position.h"
 ORB_DEFINE(vehicle_gps_position, struct vehicle_gps_position_s);
 
+#include "topics/vehicle_gps_position_1.h"
+ORB_DEFINE(vehicle_gps_position_1, struct vehicle_gps_position_s);  // the secondary gps message
+
 #include "topics/vehicle_land_detected.h"
 ORB_DEFINE(vehicle_land_detected, struct vehicle_land_detected_s);
 
