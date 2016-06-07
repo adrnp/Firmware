@@ -451,7 +451,14 @@ LBMP::payload_rx_add_nav(const uint8_t c)
             // TODO: parse time block information
 
             // DEBUG
-            //printf("[LBMP] decoded position: e.g. lat = %d\n", _gps_position->lat);
+            /*
+            printf("[LBMP] decoded position:\n");
+            printf("\tlat = %d\n", _gps_position->lat);
+            printf("\tlon = %d\n", _gps_position->lon);
+            printf("\talt = %f\n", (double) _gps_position->alt);
+            printf("\teph = %f\n", (double) _gps_position->eph);
+            printf("\tepv = %f\n", (double) _gps_position->epv);
+            */
 
             // if looking at the extended nav solution (right now that's the only one we have coming in)
             _nav_decode_state = LBMP_NAV_DECODE_EXT_BLK;
