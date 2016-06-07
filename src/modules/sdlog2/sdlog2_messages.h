@@ -582,6 +582,26 @@ struct log_APOS_s {
 	float lon;
 }; */
 
+/* --- GPS1 - SECONDARY GPS POSITION --- */
+#define LOG_GPS1_MSG 71
+struct log_GPS1_s {
+	uint64_t gps_time;
+	uint8_t fix_type;
+	float eph;
+	float epv;
+	int32_t lat;
+	int32_t lon;
+	float alt;
+	float vel_n;
+	float vel_e;
+	float vel_d;
+	float cog;
+	uint8_t sats;
+	uint16_t snr_mean;
+	uint16_t noise_per_ms;
+	uint16_t jamming_indicator;
+};
+
 /********** SYSTEM MESSAGES, ID > 0x80 **********/
 
 /* --- TIME - TIME STAMP --- */
@@ -657,6 +677,7 @@ static const struct log_format_s log_formats[] = {
 	LOG_FORMAT(ENCD, "qfqf",	"cnt0,vel0,cnt1,vel1"),
 	LOG_FORMAT(HUNT, "B",	"HuntState"),
 	LOG_FORMAT(TCMD, "BBffff",	"id,type,N,E,yaw,alt"),
+	LOG_FORMAT(GPS1, "QBffLLfffffBHHH",	"GPSTime,Fix,EPH,EPV,Lat,Lon,Alt,VelN,VelE,VelD,Cog,nSat,SNR,N,J"),
 	LOG_FORMAT(TSYN, "Q", 		"TimeOffset"),
 	LOG_FORMAT(MACS, "fff", "RRint,PRint,YRint"),
 

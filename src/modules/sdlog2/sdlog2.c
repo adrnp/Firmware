@@ -88,6 +88,7 @@
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/position_setpoint_triplet.h>
 #include <uORB/topics/vehicle_gps_position.h>
+#include <uORB/topics/vehicle_gps_position_1.h>
 #include <uORB/topics/satellite_info.h>
 #include <uORB/topics/att_pos_mocap.h>
 #include <uORB/topics/vision_position_estimate.h>
@@ -1116,6 +1117,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		*/
 		struct hunt_state_s hunt_state;
 		struct tracking_cmd_s tracking_cmd;
+		struct vehicle_gps_position_s secondary_gps;
 
 	} buf;
 
@@ -1178,6 +1180,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 			*/
 			struct log_TCMD_s log_TCMD;
 			struct log_HUNT_s log_HUNT;
+			struct log_GPS1_s log_GPS1;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -1232,6 +1235,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		*/
 		int hunt_sub;
 		int tcmd_sub;
+		int secondary_gps_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1280,6 +1284,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 	*/
 	subs.hunt_sub = orb_subscribe(ORB_ID(hunt_state));
 	subs.tcmd_sub = orb_subscribe(ORB_ID(tracking_cmd));
+	subs.secondary_gps_sub = -1;
 
 
 	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
@@ -1997,6 +2002,27 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_APOS.lon = buf.apnt_position.lon;
 			LOGBUFFER_WRITE_AND_COUNT(APOS);
 		} */
+
+		/* --- SECONDARY GPS POSITION --- */
+		if (copy_if_updated(ORB_ID(vehicle_gps_position_1), &subs.secondary_gps_sub, &buf.secondary_gps)) {
+			log_msg.msg_type = LOG_GPS1_MSG;
+			log_msg.body.log_GPS1.gps_time = buf.secondary_gps.time_utc_usec;
+			log_msg.body.log_GPS1.fix_type = buf.secondary_gps.fix_type;
+			log_msg.body.log_GPS1.eph = buf.secondary_gps.eph;
+			log_msg.body.log_GPS1.epv = buf.secondary_gps.epv;
+			log_msg.body.log_GPS1.lat = buf.secondary_gps.lat;
+			log_msg.body.log_GPS1.lon = buf.secondary_gps.lon;
+			log_msg.body.log_GPS1.alt = buf.secondary_gps.alt * 0.001f;
+			log_msg.body.log_GPS1.vel_n = buf.secondary_gps.vel_n_m_s;
+			log_msg.body.log_GPS1.vel_e = buf.secondary_gps.vel_e_m_s;
+			log_msg.body.log_GPS1.vel_d = buf.secondary_gps.vel_d_m_s;
+			log_msg.body.log_GPS1.cog = buf.secondary_gps.cog_rad;
+			log_msg.body.log_GPS1.sats = buf.secondary_gps.satellites_used;
+			log_msg.body.log_GPS1.snr_mean = 0;
+			log_msg.body.log_GPS1.noise_per_ms = buf.secondary_gps.noise_per_ms;
+			log_msg.body.log_GPS1.jamming_indicator = buf.secondary_gps.jamming_indicator;
+			LOGBUFFER_WRITE_AND_COUNT(GPS1);
+		}
 
 		/* --- ENCODERS --- */
 		if (copy_if_updated(ORB_ID(encoders), &subs.encoders_sub, &buf.encoders)) {
