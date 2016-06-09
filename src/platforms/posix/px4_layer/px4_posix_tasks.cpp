@@ -50,6 +50,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -169,13 +170,31 @@ px4_task_t px4_task_spawn_cmd(const char *name, int scheduler, int priority, int
 
 	if (rv != 0) {
 		PX4_WARN("px4_task_spawn_cmd: failed to init thread attrs");
+		free(taskdata);
 		return (rv < 0) ? rv : -rv;
 	}
+
+#ifndef __PX4_DARWIN
+
+	if (stack_size < PTHREAD_STACK_MIN) {
+		stack_size = PTHREAD_STACK_MIN;
+	}
+
+	rv = pthread_attr_setstacksize(&attr, stack_size);
+
+	if (rv != 0) {
+		PX4_ERR("pthread_attr_setstacksize to %d returned error (%d)", stack_size, rv);
+		free(taskdata);
+		return (rv < 0) ? rv : -rv;
+	}
+
+#endif
 
 	rv = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
 
 	if (rv != 0) {
 		PX4_WARN("px4_task_spawn_cmd: failed to set inherit sched");
+		free(taskdata);
 		return (rv < 0) ? rv : -rv;
 	}
 
@@ -183,6 +202,7 @@ px4_task_t px4_task_spawn_cmd(const char *name, int scheduler, int priority, int
 
 	if (rv != 0) {
 		PX4_WARN("px4_task_spawn_cmd: failed to set sched policy");
+		free(taskdata);
 		return (rv < 0) ? rv : -rv;
 	}
 
@@ -192,6 +212,7 @@ px4_task_t px4_task_spawn_cmd(const char *name, int scheduler, int priority, int
 
 	if (rv != 0) {
 		PX4_WARN("px4_task_spawn_cmd: failed to set sched param");
+		free(taskdata);
 		return (rv < 0) ? rv : -rv;
 	}
 
@@ -219,10 +240,14 @@ px4_task_t px4_task_spawn_cmd(const char *name, int scheduler, int priority, int
 			if (rv != 0) {
 				PX4_ERR("px4_task_spawn_cmd: failed to create thread %d %d\n", rv, errno);
 				taskmap[taskid].isused = false;
+				pthread_mutex_unlock(&task_mutex);
+				free(taskdata);
 				return (rv < 0) ? rv : -rv;
 			}
 
 		} else {
+			pthread_mutex_unlock(&task_mutex);
+			free(taskdata);
 			return (rv < 0) ? rv : -rv;
 		}
 	}

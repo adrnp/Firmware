@@ -74,6 +74,9 @@
 #include <uORB/topics/vehicle_force_setpoint.h>
 #include <uORB/topics/time_offset.h>
 #include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/follow_target.h>
+#include <uORB/topics/transponder_report.h>
+#include <uORB/topics/gps_inject_data.h>
 #include <uORB/topics/apnt_gps_status.h>
 #include <uORB/topics/apnt_site_status.h>
 #include <uORB/topics/tracking_status.h>
@@ -113,12 +116,11 @@ public:
 	 */
 	void		print_status();
 
-	static pthread_t receive_start(Mavlink *parent);
+	static void receive_start(pthread_t *thread, Mavlink *parent);
 
 	static void *start_helper(void *context);
 
 private:
-	Mavlink	*_mavlink;
 
 	void handle_message(mavlink_message_t *msg);
 	void handle_message_command_long(mavlink_message_t *msg);
@@ -144,6 +146,9 @@ private:
 	void handle_message_hil_gps(mavlink_message_t *msg);
 	void handle_message_hil_state_quaternion(mavlink_message_t *msg);
 	void handle_message_distance_sensor(mavlink_message_t *msg);
+	void handle_message_follow_target(mavlink_message_t *msg);
+	void handle_message_adsb_vehicle(mavlink_message_t *msg);
+	void handle_message_gps_inject_data(mavlink_message_t *msg);
 	void handle_message_apnt_gps_status(mavlink_message_t *msg);
 	void handle_message_apnt_site_status(mavlink_message_t *msg);
 	void handle_message_tracking_status(mavlink_message_t *msg);
@@ -164,7 +169,7 @@ private:
 	/**
 	 * Exponential moving average filter to smooth time offset
 	 */
-	void smooth_time_offset(uint64_t offset_ns);
+	void smooth_time_offset(int64_t offset_ns);
 
 	/**
 	 * Decode a switch position from a bitfield
@@ -178,6 +183,7 @@ private:
 
 	bool	evaluate_target_ok(int command, int target_system, int target_component);
 
+	Mavlink	*_mavlink;
 	mavlink_status_t status;
 	struct vehicle_local_position_s hil_local_pos;
 	struct vehicle_land_detected_s hil_land_detector;
@@ -212,6 +218,11 @@ private:
 	orb_advert_t _manual_pub;
 	orb_advert_t _land_detector_pub;
 	orb_advert_t _time_offset_pub;
+	orb_advert_t _follow_target_pub;
+	orb_advert_t _transponder_report_pub;
+	static const int _gps_inject_data_pub_size = 4;
+	orb_advert_t _gps_inject_data_pub[_gps_inject_data_pub_size];
+	int _gps_inject_data_next_idx = 0;
 	orb_advert_t _apnt_gps_status_pub;
 	orb_advert_t _apnt_site_status_pub;
 	orb_advert_t _tracking_status_pub;
@@ -233,7 +244,7 @@ private:
 	struct vehicle_attitude_setpoint_s _att_sp;
 	struct vehicle_rates_setpoint_s _rates_sp;
 	double _time_offset_avg_alpha;
-	uint64_t _time_offset;
+	int64_t _time_offset;
 	int	_orb_class_instance;
 
 	static constexpr unsigned MOM_SWITCH_COUNT = 8;

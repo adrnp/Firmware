@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,13 +67,14 @@ PARAM_DEFINE_INT32(MAV_RADIO_ID, 0);
  * @min 1
  * @group MAVLink
  */
-PARAM_DEFINE_INT32(MAV_TYPE, 1);
+PARAM_DEFINE_INT32(MAV_TYPE, 2);
 
 /**
  * Use/Accept HIL GPS message even if not in HIL mode
  *
  * If set to 1 incoming HIL GPS messages are parsed.
  *
+ * @boolean
  * @group MAVLink
  */
 PARAM_DEFINE_INT32(MAV_USEHILGPS, 0);
@@ -84,6 +85,7 @@ PARAM_DEFINE_INT32(MAV_USEHILGPS, 0);
  * If set to 1 incoming external setpoint messages will be directly forwarded
  * to the controllers if in offboard control mode
  *
+ * @boolean
  * @group MAVLink
  */
 PARAM_DEFINE_INT32(MAV_FWDEXTSP, 1);
@@ -99,4 +101,3 @@ PARAM_DEFINE_INT32(MAV_FWDEXTSP, 1);
  * @max 1000
  */
 PARAM_DEFINE_INT32(MAV_TEST_PAR, 1);
-
