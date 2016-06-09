@@ -85,7 +85,7 @@
 # * If a target from add_custom_* is set in a function, explicitly pass it
 #	as an output argument so that the target name is clear to the user.
 #
-# * Avoid use of global variables in functions. Functions in a nested 
+# * Avoid use of global variables in functions. Functions in a nested
 #	scope may use global variables, but this makes it difficult to
 #	resuse functions.
 #
@@ -150,16 +150,6 @@ list(GET config_args 1 BOARD)
 list(GET config_args 2 LABEL)
 set(target_name "${OS}-${BOARD}-${LABEL}")
 
-if("${OS}" STREQUAL "posix")
-	if (APPLE)
-		set(DF_TARGET darwin)
-	else()
-		set(DF_TARGET linux)
-	endif()
-else()
-	set(DF_TARGET ${OS})
-endif()
-
 message(STATUS "${target_name}")
 
 # switch to ros CMake file if building ros
@@ -192,6 +182,11 @@ foreach(conf ${px4_required_config})
 		message(FATAL_ERROR "cmake/${config_module} must define ${conf}")
 	endif()
 endforeach()
+
+# List the DriverFramework drivers
+if(DEFINED config_df_driver_list)
+	message("DF Drivers: ${config_df_driver_list}")
+endif()
 
 #=============================================================================
 # project definition
@@ -243,12 +238,12 @@ px4_add_git_submodule(TARGET git_mavlink PATH "mavlink/include/mavlink/v1.0")
 px4_add_git_submodule(TARGET git_gtest PATH "unittets/gtest")
 px4_add_git_submodule(TARGET git_uavcan PATH "src/modules/uavcan/libuavcan")
 px4_add_git_submodule(TARGET git_nuttx PATH "NuttX")
-px4_add_git_submodule(TARGET git_dspal PATH "src/lib/dspal")
 px4_add_git_submodule(TARGET git_driverframework PATH "src/lib/DriverFramework")
 px4_add_git_submodule(TARGET git_ecl PATH "src/lib/ecl")
 px4_add_git_submodule(TARGET git_jmavsim PATH "Tools/jMAVSim")
 px4_add_git_submodule(TARGET git_gazebo PATH "Tools/sitl_gazebo")
 px4_add_git_submodule(TARGET git_matrix PATH "src/lib/matrix")
+px4_add_git_submodule(TARGET git_cmake_hexagon PATH "cmake/cmake_hexagon")
 
 add_custom_target(submodule_clean
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -293,6 +288,7 @@ px4_join(OUT CMAKE_C_FLAGS LIST "${c_flags}" GLUE " ")
 px4_join(OUT CMAKE_CXX_FLAGS LIST "${cxx_flags}" GLUE " ")
 
 include_directories(${include_dirs})
+#message("INCLUDE_DIRS=${include_dirs}")
 link_directories(${link_dirs})
 add_definitions(${definitions})
 
@@ -325,11 +321,28 @@ execute_process(COMMAND cmake -E make_directory ${ep_base}/Install/lib)
 execute_process(COMMAND cmake -E make_directory ${ep_base}/Install/include)
 
 #=============================================================================
+# DriverFramework Drivers
+#
+set(df_driver_libs)
+foreach(driver ${config_df_driver_list})
+	add_subdirectory(src/lib/DriverFramework/drivers/${driver})
+	list(APPEND df_driver_libs df_${driver})
+	message("Adding DF driver: ${driver}")
+endforeach()
+
+#=============================================================================
 # subdirectories
 #
 set(module_libraries)
 foreach(module ${config_module_list})
-	add_subdirectory(src/${module})
+	string(REGEX MATCH "^[./]" external_module ${module})
+	if(external_module)
+		STRING(REGEX REPLACE "//" "/" EXT_MODULE ${module})
+		STRING(REGEX REPLACE "/" "__" EXT_MODULE_PREFIX ${EXT_MODULE})
+		add_subdirectory(${module} ${CMAKE_BINARY_DIR}/${EXT_MODULE_PREFIX})
+	else()
+		add_subdirectory(src/${module})
+	endif()
 	px4_mangle_name(${module} mangled_name)
 	list(APPEND module_libraries ${mangled_name})
 	#message(STATUS "adding module: ${module}")
@@ -337,7 +350,6 @@ endforeach()
 
 add_subdirectory(src/firmware/${OS})
 
-add_subdirectory(src/lib/DriverFramework/framework/src)
 #add_dependencies(df_driver_framework nuttx_export_${CONFIG}.stamp)
 if (NOT "${OS}" STREQUAL "nuttx")
 endif()

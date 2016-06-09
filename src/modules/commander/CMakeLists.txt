@@ -30,16 +30,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-set(MODULE_CFLAGS -Os)
-if(${OS} STREQUAL "nuttx")
-	list(APPEND MODULE_CFLAGS -Wframe-larger-than=2450)
-endif()
 px4_add_module(
 	MODULE modules__commander
 	MAIN commander
-	STACK 4096
+	STACK_MAIN 4096
+	STACK_MAX 2450
 	COMPILE_FLAGS
-		${MODULE_CFLAGS}
+		-Wno-attributes
+		-Wno-packed
 		-Os
 	SRCS
 		commander.cpp

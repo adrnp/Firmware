@@ -37,8 +37,7 @@
  * GPS driver interface.
  */
 
-#ifndef _DRV_GPS_H
-#define _DRV_GPS_H
+#pragma once
 
 #include <stdint.h>
 #include <sys/ioctl.h>
@@ -67,16 +66,3 @@ typedef enum {
     GPS_DRIVER_MODE_LBMP
 } gps_driver_mode_t;
 
-
-/*
- * ObjDev tag for GPS data.
- */
-ORB_DECLARE(gps);
-
-/*
- * ioctl() definitions
- */
-#define _GPSIOCBASE			(0x2800)            //TODO: arbitrary choice...
-#define _GPSIOC(_n)		(_IOC(_GPSIOCBASE, _n))
-
-#endif /* _DRV_GPS_H */

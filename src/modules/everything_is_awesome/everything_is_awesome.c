@@ -12,10 +12,14 @@
 #include <nuttx/config.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <poll.h>
 #include <string.h>
 #include <drivers/drv_hrt.h>
 #include <time.h>
+#include <mathlib/mathlib.h>
+#include <math.h>
+#include <lib/geo/geo.h>
 
 #include <uORB/uORB.h>
 #include <uORB/topics/apnt_gps_status.h>
@@ -25,6 +29,7 @@
 #include <uORB/topics/temp_hunt_result.h>
 #include <uORB/topics/hunt_rssi.h>
 #include <uORB/topics/hunt_bearing.h>
+#include <uORB/topics/vehicle_global_position.h>
 
 __EXPORT int everything_is_awesome_main(int argc, char *argv[]);
 
@@ -43,6 +48,7 @@ int everything_is_awesome_main(int argc, char *argv[]) {
 	int temp_hunt_result_sub_fd = orb_subscribe(ORB_ID(temp_hunt_result));
 	int hunt_bearing_sub_fd = orb_subscribe(ORB_ID(hunt_bearing));
 	int hunt_rssi_sub_fd = orb_subscribe(ORB_ID(hunt_rssi));
+    int global_position_sub_fd = orb_subscribe(ORB_ID(vehicle_global_position));
 
 	/* advertise hunt state topic */
 	struct hunt_state_s hunt_state;
@@ -55,6 +61,16 @@ int everything_is_awesome_main(int argc, char *argv[]) {
 	orb_set_interval(tracking_status_sub_fd, 1000);
 
 
+    /* get a first heading position */
+    struct vehicle_global_position_s global_pos;
+    orb_copy(ORB_ID(vehicle_global_position), global_position_sub_fd, &global_pos);
+    float yaw_0 = _wrap_2pi(global_pos.yaw);
+    float yaw_0_deg = (yaw_0*180.0f/M_PI_F);
+
+    printf("[everything_is_awesome] INITIAL HEADING: \n"
+           "\t yaw: %f\n", (double) yaw_0_deg);
+
+
 	struct pollfd fds[] = {
 			{ .fd = apnt_sub_fd,   .events = POLLIN },
 			{ .fd = tracking_cmd_sub_fd,   .events = POLLIN },
@@ -62,6 +78,7 @@ int everything_is_awesome_main(int argc, char *argv[]) {
 			{ .fd = temp_hunt_result_sub_fd,   .events = POLLIN },
 			{ .fd = hunt_bearing_sub_fd,   .events = POLLIN },
 			{ .fd = hunt_rssi_sub_fd,   .events = POLLIN },
+            { .fd = global_position_sub_fd,   .events = POLLIN },
 	};
 
 	int error_counter = 0;
@@ -155,6 +172,14 @@ int everything_is_awesome_main(int argc, char *argv[]) {
 				printf("[everything_is_awesome] RSSI VALUE: \n"
 						"\t rssi: %u\n", rssi.rssi);
 			}
+
+            if (fds[6].revents & POLLIN) {
+                orb_copy(ORB_ID(vehicle_global_position), global_position_sub_fd, &global_pos);
+                printf("[everything_is_awesome] CURRENT HEADING: \n"
+                       "\t yaw: %f\n", (double) (_wrap_2pi(global_pos.yaw)*180.0f/M_PI_F));
+
+            }
+
 			struct hunt_rssi_s rssi;
 			orb_copy(ORB_ID(hunt_rssi), hunt_rssi_sub_fd, &rssi);
 			printf("[everything_is_awesome] RSSI VALUE: \n"

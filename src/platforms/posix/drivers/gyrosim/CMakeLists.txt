@@ -33,8 +33,9 @@
 px4_add_module(
 	MODULE platforms__posix__drivers__gyrosim
 	MAIN gyrosim
-	STACK 1200
+	STACK_MAIN 1200
 	COMPILE_FLAGS
+		-Wno-packed
 		-Os
 	SRCS
 		gyrosim.cpp

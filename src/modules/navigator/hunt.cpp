@@ -15,7 +15,7 @@
 #include <fcntl.h>
 #include <mathlib/mathlib.h>
 
-#include <mavlink/mavlink_log.h>
+#include <systemlib/mavlink_log.h>
 #include <systemlib/err.h>
 
 #include <uORB/uORB.h>
@@ -46,16 +46,16 @@ Hunt::Hunt(Navigator *navigator, const char *name) :
     _hunt_state_pub(nullptr),
 
 /* rotation handling */
-	_current_rotation_direction(0),
+    _current_rotation_direction(1),
 	_end_rotation_angle(0),
-	_total_rotation(0),
 	_prev_yaw(0),
 	_in_rotation(false),
 	_allow_rotation_end(false),
+    _start_rotation_angle(0),
+    _total_rotation(0),
 
 /* time */
 	_temp_time(hrt_absolute_time()),
-	_test_time(hrt_absolute_time()),
 	_ref_timestamp(0)
 {
 	/* initialize structs */
@@ -96,8 +96,15 @@ Hunt::on_activation()
 {
 	// called when we hunt mode gets activated
 
+    // send status updates
+    mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] moving to start");  // alert to ground
+
+
 	if (!_started) { // hunt not started, meaning this is the first time we have activated hunt
 		// go to start position
+
+        /* send a message that hunt mode has been activated */
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "#audio: hunt started");
 
 		// set the state to moving to first position
 		// XXX: maybe don't need state start, and just set it to state move here
@@ -137,7 +144,7 @@ Hunt::on_activation()
 
 		// broadcast the status change
 		// TODO: make change the state a function, will better outline the state machine...
-		report_status();
+        report_state();
 		*/
 
 	}
@@ -154,114 +161,102 @@ Hunt::on_active()
 	// update the reference position
 	update_reference_position();
 
-	// only check mission success when not in a waiting mode (to avoid always checking whether or not
-	// we have reached the cmd when we are just waiting around)
-	// TODO: use own is mission item reached.... trying to use the existing one may be the source of some problems
-    if (_hunt_state == hunt_state_s::HUNT_STATE_MOVE && is_mission_item_reached()) {
-		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] travel completed");
+    switch (_hunt_state) {
 
-		_test_time = hrt_absolute_time(); // update the test time, this is for a delay between
+    /* moving to a position */
+    case hunt_state_s::HUNT_STATE_MOVE:
 
-		// we finished with the cmd, so broadcast that
-		report_cmd_finished();
+        /* check to see if we have reached out destination */
+        if (is_mission_item_reached()) {
 
-		// change the state to waiting since we have reached the target
-        _hunt_state = hunt_state_s::HUNT_STATE_WAIT;
+            reset_mission_item_reached();  // reset mission item status (since we want to move to next thing)
 
-		// have vehicle start waiting
-		set_waiting();
+            // send status updates
+            mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] travel completed");  // alert to ground
 
-		// reset whether or not we have reached the mission item
-		reset_mission_item_reached();
+            report_cmd_finished();  // pushlish to topic (alert to odroid via mavlink)
 
-		// state changed here, so report it
-		report_status();
-
-    } else if (_hunt_state == hunt_state_s::HUNT_STATE_ROTATE) {
-
-		/* check to see if rotation finished */
-		if (is_mission_item_reached()) {
-
-			mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] rotation completed");
-			_allow_rotation_end = false;
-			_in_rotation = false;
-
-			report_cmd_finished();
-
+            // update the state (now waiting for next command)
             _hunt_state = hunt_state_s::HUNT_STATE_WAIT;
-			set_waiting();
-			reset_mission_item_reached();
-			report_cmd_finished();
+            set_waiting();      // have vehicle start waiting
+        }
 
-		} else {	/* still rotating */
+        // keep letting it move...
 
+        break;
 
-			if (get_next_cmd()) { /* termination of direction change requested */
+    /* rotating at a given position */
+    case hunt_state_s::HUNT_STATE_ROTATE:
 
-				set_next_item();
+        /* check to see if rotation finished */
+        if (is_mission_item_reached()) {
 
-			} else {	/* continue rotation */
+            reset_mission_item_reached();   // reset mission item status
 
-				// need to calculate the yaw increment
-				float currentYaw2pi = _wrap_2pi(_navigator->get_global_position()->yaw);
-				float prevYaw2pi = _wrap_2pi(_prev_yaw);
-				float dtheta = math::min(fabsf(prevYaw2pi - currentYaw2pi), _wrap_2pi((M_TWOPI_F - prevYaw2pi) + currentYaw2pi));
-				_total_rotation += dtheta;
-				mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_total_rotation));
+            // send status updates
+            mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] rotation completed");
 
-				// determine the total rotation threshold
-				// TODO: this should be done elsewhere!!!
-				float yaw_step = _param_yaw_increment.get();
-				float threshold = M_TWOPI_F - math::radians(90.0f);
-				if (yaw_step > 0) {
-					threshold = M_TWOPI_F - math::radians(yaw_step);
-				}
+            report_cmd_finished();
 
-				// want to limit to 1 rotation, so only continue rotation if not going to complete 1 full rotation
-				if (_total_rotation < threshold) {
-					continue_rotation();
-				} else { // DEBUG
-					// TESTING
-					// _tracking_cmd.yaw_angle = -1.0;
-					// start_rotation();
-				}
-			}
-		}
-	}
+            // update the rotation handling stuff
+            // TODO: figure out if this is still needed???
+            _allow_rotation_end = false;
+            _in_rotation = false;
+
+            // update the state (now waiting for the next command)
+            _hunt_state = hunt_state_s::HUNT_STATE_WAIT;
+            set_waiting();  // have vehicle start waiting
+
+        } else {    /* still rotating */
 
 
+            if (get_next_cmd()) {   /* termination of direction change requested */
 
-	// XXX: not sure if or or and is best here, depends on when hunt state is
-	// changed to wait
-    if (_hunt_state == hunt_state_s::HUNT_STATE_WAIT) {
-		// we have reached the desired point or are waiting
+                set_next_item();
 
-		// ------------ DEBUG ------------------- //
-		// just doing a rotation here
-		// -------------------------------------- //
-		// rotate();
+            } else {	/* continue rotation */
 
+                // update how much we have rotated by
+                update_total_rotation();
 
-		if (get_next_cmd()) {
-			// new command has come from tracking
-			set_next_item();
+                // determine the total rotation threshold
+                // TODO: this should be done elsewhere!!!
+                float yaw_step = _param_yaw_increment.get();
+                float threshold = M_TWOPI_F - math::radians(90.0f);
+                if (yaw_step > 0) {
+                    threshold = M_TWOPI_F - math::radians(yaw_step);
+                }
 
-			// set next item will handle the state change to a none wait state
-		}
-	}
+                // want to limit to 1 rotation, so only continue rotation if not going to complete 1 full rotation
+                if (_total_rotation < threshold) {
+                    continue_rotation();
+                }
+            }
+        }
+
+        break;
+
+    /* waiting for the next command */
+    case hunt_state_s::HUNT_STATE_WAIT:
+
+        // check for next command and set it if present
+        if (get_next_cmd()) {
+
+            set_next_item();    // new command has come from tracking
+        }
+
+        break;
+    }
 
 	// always report the status here, just so there is a constant new mavlink message
-	report_status();
-
-	// XXX: IMPORTANT
-	// TODO: figure out how to broadcast done with the command
+    report_state();
 
 }
 
 bool
 Hunt::get_next_cmd()
 {
-	bool updated = false;
+    bool updated = false;
 	orb_check(_navigator->get_hunt_mission_sub(), &updated);
 
 	if (updated) {
@@ -276,7 +271,9 @@ Hunt::get_next_cmd()
 void
 Hunt::set_next_item()
 {
-	/* get pointer to the position setpoint from the navigator */
+    mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] new command received");
+
+    /* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
 	/* make sure we have the latest params */
@@ -286,68 +283,76 @@ Hunt::set_next_item()
 	set_previous_pos_setpoint();
 
 	// update the current cmd id to be that of the new cmd
-	_current_cmd_id = _tracking_cmd.cmd_id;
+    _current_cmd_id = _tracking_cmd.cmd_id;
 
-	// not sure about this
-	// XXX: figure out difference between can loiter at sp and can't loiter
-	// who looks at this... (will be setting it as true... others have it as false...)
-	_navigator->set_can_loiter_at_sp(true);
 
 	// XXX: IMPORTANT
 	// TODO: should do a distance to home check on this to make sure we are not commanded to go insanely far
 
 	// create a mission item from the tracking cmd
 	switch (_tracking_cmd.cmd_type) {
-    case tracking_cmd_s::HUNT_CMD_TRAVEL: {
-		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] traveling");
-		/* change the hunt state to move */
-        _hunt_state = hunt_state_s::HUNT_STATE_MOVE;
 
-		/* get desired north and east distances of travel */
-		set_mission_latlon();
+    /* move commanded */
+    case tracking_cmd_s::HUNT_CMD_TRAVEL:
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] traveling");
 
-		_mission_item.yaw = math::radians(270.0f);	// for now just go with point north
+        _hunt_state = hunt_state_s::HUNT_STATE_MOVE;    // update state
 
-		// setting the altitude of the mission item for a move command
-		_mission_item.altitude_is_relative = false;
-		_mission_item.altitude = _tracking_cmd.altitude;
+
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] cmnd (%d): N: %0.1f, E:%0.1f, A: %0.1f", _tracking_cmd.cmd_id, (double)_tracking_cmd.north, (double)_tracking_cmd.east, (double)_tracking_cmd.altitude);
+
+        // update mission items
+
+        set_mission_latlon();                       // set the lat/lon for mission item (from N,E)
+        _mission_item.altitude_is_relative = false;         // abs altitudes
+        _mission_item.altitude = _tracking_cmd.altitude;
+
+        // set the yaw (if given)
+        if (_tracking_cmd.yaw_angle >= 0) {
+            _mission_item.yaw = math::radians(_tracking_cmd.yaw_angle);
+        } else {
+            _mission_item.yaw = math::radians(270.0f);	// default to pointing west
+        }
+
 
 		break;
-	}
-    case tracking_cmd_s::HUNT_CMD_ROTATE: {
+
+    /* rotation commanded */
+    case tracking_cmd_s::HUNT_CMD_ROTATE:
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] rotating");
 
 		// if we are already in a rotation state, will want to terminate that rotation first
         if (_hunt_state == hunt_state_s::HUNT_STATE_ROTATE) {
 			end_rotation();
 		}
 
-		/* change the hunt state to rotate */
-        _hunt_state = hunt_state_s::HUNT_STATE_ROTATE;
-		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] rotating");
+        _hunt_state = hunt_state_s::HUNT_STATE_ROTATE;  // update state
 
-		// do the management for starting a rotation
-		start_rotation();
+        start_rotation();   // do the management for starting a rotation
 
 		break;
-	}
-    case tracking_cmd_s::HUNT_CMD_FINISH: {
-		// change the hunt state to off
-        _hunt_state = hunt_state_s::HUNT_STATE_OFF;
 
-		set_waiting();
+    /* finishing commanded */
+    case tracking_cmd_s::HUNT_CMD_FINISH:
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] finished");
 
-		// report the new cmd id
-		report_cmd_id();
+        _hunt_state = hunt_state_s::HUNT_STATE_OFF;  // change the hunt state to off
+        set_waiting();  // let the vehicle just sit here
 
-		// status must have changed if at this point, so report it
-		report_status();
+        // report stuff, since returning from here
+        report_cmd_id();  // report the new cmd id
+        report_state();
 
-		// straight up return from here...
-		return;
-	}
+        return;  // straight up return from here...
+
 	default:
-		break;
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] unknown command");
 
+        // if don't know command, just set to waiting
+        set_waiting();
+        report_cmd_id();
+        report_state();
+        return;
 	}
 
 	// do all the general constant stuff (same for all mission items)
@@ -360,8 +365,9 @@ Hunt::set_next_item()
 	_mission_item.autocontinue = false;
 	_mission_item.origin = ORIGIN_TRACKING;
 
+    _navigator->set_can_loiter_at_sp(true); // allow the vehicle to loiter at this setpoint
+
 	// need to reset the mission item reached info
-	// XXX: THIS MAY BE UNNECESSARY??
 	reset_mission_item_reached();
 
 	/* convert mission item to current position setpoint and make it valid */
@@ -370,19 +376,17 @@ Hunt::set_next_item()
 
 	_navigator->set_position_setpoint_triplet_updated();
 
-	// report the new cmd id
-	report_cmd_id();
-
-	// status must have changed if at this point, so report it
-	report_status();
-
+    // publish the command and the state
+    report_cmd_id();    // report the new cmd id
+    report_state();     // status must have changed if at this point, so report it
 }
 
 
 void
 Hunt::set_waiting()
 {
-	mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] set to waiting");
+	mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] set to waiting");
+
 	/* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
@@ -399,13 +403,34 @@ Hunt::set_waiting()
 	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
 	pos_sp_triplet->next.valid = false;
 
-	// _navigator->set_can_loiter_at_sp(pos_sp_triplet->current.type == SETPOINT_TYPE_LOITER); // this is what mission does
-
-	// XXX: really not sure...
-	// _navigator->set_can_loiter_at_sp(true);
-
 	_navigator->set_position_setpoint_triplet_updated();
 }
+
+
+void
+Hunt::set_mission_latlon()
+{
+    // calculate the desired noth and east positions in the local frame
+    float north_desired = _tracking_cmd.north + _local_pos.x;
+    float east_desired = _tracking_cmd.east + _local_pos.y;
+
+    // default to moving to the starting position
+    _mission_item.lat = (double) _param_start_lat.get();
+    _mission_item.lon = (double) _param_start_lon.get();
+
+    // now need to convert from the local frame to lat lon, will also directly set it
+    // to the mission item while we are at it
+    double next_lat;
+    double next_lon;
+    if (map_projection_reproject(&_ref_pos, north_desired, east_desired, &next_lat, &next_lon) == 0) {
+        _mission_item.lat = next_lat;
+        _mission_item.lon = next_lon;
+    } else {
+        // error
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] unable to do reprojection");
+    }
+}
+
 
 void
 Hunt::report_cmd_finished()
@@ -433,10 +458,10 @@ Hunt::publish_hunt_result()
 	/* lazily publish the mission result only once available */
     if (_hunt_result_pub == nullptr) {
         /* advertise and publish */
-        _hunt_result_pub = orb_advertise(ORB_ID(hunt_result), &_hunt_result_pub);
+        _hunt_result_pub = orb_advertise(ORB_ID(hunt_result), &_hunt_result);
 	} else {
         /* publish mission result */
-        orb_publish(ORB_ID(hunt_result), _hunt_result_pub, &_hunt_result_pub);
+        orb_publish(ORB_ID(hunt_result), _hunt_result_pub, &_hunt_result);
 	}
 
 	/* reset reached bool */
@@ -445,7 +470,7 @@ Hunt::publish_hunt_result()
 }
 
 void
-Hunt::report_status()
+Hunt::report_state()
 {
 	// update the tracking status state to the current hunt state
 	_hunt_state_s.hunt_mode_state = _hunt_state;
@@ -498,15 +523,29 @@ Hunt::update_reference_position()
 
 
 void
-Hunt::set_mission_latlon()
+Hunt::update_total_rotation()
 {
-	// calculate the desired noth and east positions in the local frame
-	float north_desired = _tracking_cmd.north + _local_pos.x;
-	float east_desired = _tracking_cmd.east + _local_pos.y;
+    // new calculation of total rotation
+    float currentYaw2pi = _wrap_2pi(_navigator->get_global_position()->yaw);
+    if (_current_rotation_direction > 0) {  // clockwise rotation
 
-	// now need to convert from the local frame to lat lon, will also directly set it
-	// to the mission item while we are at it
-	map_projection_reproject(&_ref_pos, north_desired, east_desired, &_mission_item.lat, &_mission_item.lon);
+        if (_start_rotation_angle < currentYaw2pi) {
+            _total_rotation = currentYaw2pi - _start_rotation_angle;
+        } else {
+            _total_rotation = (M_TWOPI_F - _start_rotation_angle) + currentYaw2pi;
+        }
+
+    } else {    // counterclockwise rotation
+
+        if (_start_rotation_angle < currentYaw2pi) {
+            _total_rotation = _start_rotation_angle + (M_TWOPI_F - currentYaw2pi);
+        } else {
+            _total_rotation = _start_rotation_angle - currentYaw2pi;
+        }
+    }
+
+    // DEBUG
+    //mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_total_rotation));
 }
 
 
@@ -519,7 +558,7 @@ Hunt::rotate()
 	/* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 
-	_current_rotation_direction = 1;
+    _current_rotation_direction = 1;
 
 	/* we want to just sit in one spot */
 	_mission_item.lat = _navigator->get_global_position()->lat;
@@ -568,7 +607,7 @@ Hunt::rotate()
 	report_cmd_id();
 
 	// status must have changed if at this point, so report it
-	report_status();
+    report_state();
 }
 
 
@@ -581,11 +620,14 @@ Hunt::start_rotation()
 	_prev_yaw = _navigator->get_global_position()->yaw;
 	_total_rotation = 0.0f;
 
+    _start_rotation_angle = _wrap_2pi(_navigator->get_global_position()->yaw);
+    _total_rotation = 0.0f;
+
 	// get the data from the tracking command (which direction to rotate)
-	_current_rotation_direction = (int) _tracking_cmd.yaw_angle;
+    _current_rotation_direction = (int) _tracking_cmd.yaw_angle;
 	if (_current_rotation_direction == 0) {
 		_current_rotation_direction = 1;
-	}
+    }
 
 	/* we want to just sit in one spot at the current altitude */
 	_mission_item.lat = _navigator->get_global_position()->lat;
@@ -702,7 +744,7 @@ Hunt::move_to_start()
 	report_cmd_id();
 
 	// status must have changed if at this point, so report it
-	report_status();
+    report_state();
 
 }
 

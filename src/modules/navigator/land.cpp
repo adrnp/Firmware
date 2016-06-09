@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2014 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,8 +44,8 @@
 #include <math.h>
 #include <fcntl.h>
 
-#include <mavlink/mavlink_log.h>
 #include <systemlib/err.h>
+#include <systemlib/mavlink_log.h>
 
 #include <uORB/uORB.h>
 #include <uORB/topics/position_setpoint_triplet.h>
