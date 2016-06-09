@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,9 +63,9 @@
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
 #include <systemlib/systemlib.h>
+#include <systemlib/mavlink_log.h>
 #include <mathlib/mathlib.h>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
-#include <mavlink/mavlink_log.h>
 #include <platforms/px4_defines.h>
 
 static uint64_t IMUusec = 0;
@@ -132,12 +132,12 @@ AttitudePositionEstimatorEKF::AttitudePositionEstimatorEKF() :
 	_airspeed_sub(-1),
 	_baro_sub(-1),
 	_gps_sub(-1),
-	_vstatus_sub(-1),
+	_vehicle_status_sub(-1),
+	_vehicle_land_detected_sub(-1),
 	_params_sub(-1),
 	_manual_control_sub(-1),
 	_mission_sub(-1),
 	_home_sub(-1),
-	_landDetectorSub(-1),
 	_armedSub(-1),
 
 	/* publications */
@@ -155,13 +155,13 @@ AttitudePositionEstimatorEKF::AttitudePositionEstimatorEKF() :
 	_mag{},
 	_airspeed{},
 	_baro{},
-	_vstatus{},
+	_vehicle_status{},
+	_vehicle_land_detected{},
 	_global_pos{},
 	_local_pos{},
 	_gps{},
 	_wind{},
 	_distance{},
-	_landDetector{},
 	_armed{},
 
 	_last_accel(0),
@@ -176,14 +176,23 @@ AttitudePositionEstimatorEKF::AttitudePositionEstimatorEKF() :
 	_baro_gps_offset(0.0f),
 
 	/* performance counters */
-	_loop_perf(perf_alloc(PC_ELAPSED, "ekf_att_pos_estimator")),
+	_loop_perf(perf_alloc(PC_ELAPSED, "ekf_dt")),
+#if 0
 	_loop_intvl(perf_alloc(PC_INTERVAL, "ekf_att_pos_est_interval")),
 	_perf_gyro(perf_alloc(PC_INTERVAL, "ekf_att_pos_gyro_upd")),
 	_perf_mag(perf_alloc(PC_INTERVAL, "ekf_att_pos_mag_upd")),
 	_perf_gps(perf_alloc(PC_INTERVAL, "ekf_att_pos_gps_upd")),
 	_perf_baro(perf_alloc(PC_INTERVAL, "ekf_att_pos_baro_upd")),
 	_perf_airspeed(perf_alloc(PC_INTERVAL, "ekf_att_pos_aspd_upd")),
-	_perf_reset(perf_alloc(PC_COUNT, "ekf_att_pos_reset")),
+#else
+	_loop_intvl(nullptr),
+	_perf_gyro(nullptr),
+	_perf_mag(nullptr),
+	_perf_gps(nullptr),
+	_perf_baro(nullptr),
+	_perf_airspeed(nullptr),
+#endif
+	_perf_reset(perf_alloc(PC_COUNT, "ekf_rst")),
 
 	/* states */
 	_gps_alt_filt(0.0f),
@@ -212,8 +221,8 @@ AttitudePositionEstimatorEKF::AttitudePositionEstimatorEKF() :
 	_newAdsData(false),
 	_newDataMag(false),
 	_newRangeData(false),
+	_mavlink_log_pub(nullptr),
 
-	_mavlink_fd(-1),
 	_mag_offset_x(this, "MAGB_X"),
 	_mag_offset_y(this, "MAGB_Y"),
 	_mag_offset_z(this, "MAGB_Z"),
@@ -347,22 +356,31 @@ int AttitudePositionEstimatorEKF::parameters_update()
 
 void AttitudePositionEstimatorEKF::vehicle_status_poll()
 {
-	bool vstatus_updated;
+	bool updated;
 
-	/* Check HIL state if vehicle status has changed */
-	orb_check(_vstatus_sub, &vstatus_updated);
+	orb_check(_vehicle_status_sub, &updated);
 
-	bool landed = _vstatus.condition_landed;
+	if (updated) {
 
-	if (vstatus_updated) {
-
-		orb_copy(ORB_ID(vehicle_status), _vstatus_sub, &_vstatus);
+		orb_copy(ORB_ID(vehicle_status), _vehicle_status_sub, &_vehicle_status);
 
 		// Tell EKF that the vehicle is a fixed wing or multi-rotor
-		_ekf->setIsFixedWing(!_vstatus.is_rotary_wing);
+		_ekf->setIsFixedWing(!_vehicle_status.is_rotary_wing);
+	}
+}
+
+void AttitudePositionEstimatorEKF::vehicle_land_detected_poll()
+{
+	bool updated;
+
+	orb_check(_vehicle_land_detected_sub, &updated);
+
+	if (updated) {
+
+		orb_copy(ORB_ID(vehicle_land_detected), _vehicle_land_detected_sub, &_vehicle_land_detected);
 
 		// Save params on landed
-		if (!landed && _vstatus.condition_landed) {
+		if (!_vehicle_land_detected.landed) {
 			_mag_offset_x.set(_ekf->magBias.x);
 			_mag_offset_x.commit();
 			_mag_offset_y.set(_ekf->magBias.y);
@@ -404,8 +422,7 @@ int AttitudePositionEstimatorEKF::check_filter_state()
 
 		// Do not warn about accel offset if we have no position updates
 		if (!(warn_index == 5 && _ekf->staticMode)) {
-			PX4_WARN("reset: %s", feedback[warn_index]);
-			mavlink_log_critical(_mavlink_fd, "[ekf check] %s", feedback[warn_index]);
+			mavlink_and_console_log_critical(&_mavlink_log_pub, "[ekf check] %s", feedback[warn_index]);
 		}
 	}
 
@@ -511,8 +528,6 @@ void AttitudePositionEstimatorEKF::task_main_trampoline(int argc, char *argv[])
 
 void AttitudePositionEstimatorEKF::task_main()
 {
-	_mavlink_fd = px4_open(MAVLINK_LOG_DEVICE, 0);
-
 	_ekf = new AttPosEKF();
 
 	if (!_ekf) {
@@ -529,10 +544,10 @@ void AttitudePositionEstimatorEKF::task_main()
 	_baro_sub = orb_subscribe_multi(ORB_ID(sensor_baro), 0);
 	_airspeed_sub = orb_subscribe(ORB_ID(airspeed));
 	_gps_sub = orb_subscribe(ORB_ID(vehicle_gps_position));
-	_vstatus_sub = orb_subscribe(ORB_ID(vehicle_status));
+	_vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
+	_vehicle_land_detected_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 	_home_sub = orb_subscribe(ORB_ID(home_position));
-	_landDetectorSub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	_armedSub = orb_subscribe(ORB_ID(actuator_armed));
 
 	_sensor_combined_sub = orb_subscribe(ORB_ID(sensor_combined));
@@ -589,13 +604,14 @@ void AttitudePositionEstimatorEKF::task_main()
 		if (fds[1].revents & POLLIN) {
 
 			/* check vehicle status for changes to publication state */
-			bool prev_hil = (_vstatus.hil_state == vehicle_status_s::HIL_STATE_ON);
+			bool prev_hil = (_vehicle_status.hil_state == vehicle_status_s::HIL_STATE_ON);
 			vehicle_status_poll();
+			vehicle_land_detected_poll();
 
 			perf_count(_perf_gyro);
 
 			/* Reset baro reference if switching to HIL, reset sensor states */
-			if (!prev_hil && (_vstatus.hil_state == vehicle_status_s::HIL_STATE_ON)) {
+			if (!prev_hil && (_vehicle_status.hil_state == vehicle_status_s::HIL_STATE_ON)) {
 				/* system is in HIL now, wait for measurements to come in one last round */
 				usleep(60000);
 
@@ -683,8 +699,6 @@ void AttitudePositionEstimatorEKF::task_main()
 
 					_filter_ref_offset = -_baro.altitude;
 
-					PX4_INFO("filter ref off: baro_alt: %8.4f", (double)_filter_ref_offset);
-
 				} else {
 
 					if (!_gps_initialized && _gpsIsGood) {
@@ -693,7 +707,7 @@ void AttitudePositionEstimatorEKF::task_main()
 					}
 
 					// Check if on ground - status is used by covariance prediction
-					_ekf->setOnGround(_landDetector.landed);
+					_ekf->setOnGround(_vehicle_land_detected.landed);
 
 					// We're apparently initialized in this case now
 					// check (and reset the filter as needed)
@@ -769,7 +783,6 @@ void AttitudePositionEstimatorEKF::initReferencePosition(hrt_abstime timestamp,
 		_local_pos.ref_timestamp = timestamp;
 
 		map_projection_init(&_pos_ref, lat, lon);
-		mavlink_and_console_log_info(_mavlink_fd, "[ekf] ref: LA %.4f,LO %.4f,ALT %.2f", lat, lon, (double)gps_alt);
 	}
 }
 
@@ -1308,7 +1321,7 @@ void AttitudePositionEstimatorEKF::print_status()
 
 	PX4_INFO("states: %s %s %s %s %s %s %s %s %s %s",
 		 (_ekf->statesInitialised) ? "INITIALIZED" : "NON_INIT",
-		 (_landDetector.landed) ? "ON_GROUND" : "AIRBORNE",
+		 (_vehicle_land_detected.landed) ? "ON_GROUND" : "AIRBORNE",
 		 (_ekf->fuseVelData) ? "FUSE_VEL" : "INH_VEL",
 		 (_ekf->fusePosData) ? "FUSE_POS" : "INH_POS",
 		 (_ekf->fuseHgtData) ? "FUSE_HGT" : "INH_HGT",
@@ -1442,7 +1455,7 @@ void AttitudePositionEstimatorEKF::pollData()
 			   _voter_mag.failover_count() > 0)) {
 
 		_failsafe = true;
-		mavlink_and_console_log_emergency(_mavlink_fd, "SENSOR FAILSAFE! RETURN TO LAND IMMEDIATELY");
+		mavlink_and_console_log_emergency(&_mavlink_log_pub, "SENSOR FAILSAFE! RETURN TO LAND IMMEDIATELY");
 	}
 
 	if (!_vibration_warning && (_voter_gyro.get_vibration_factor(curr_time) > _vibration_warning_threshold ||
@@ -1454,10 +1467,10 @@ void AttitudePositionEstimatorEKF::pollData()
 
 		} else if (hrt_elapsed_time(&_vibration_warning_timestamp) > 10000000) {
 			_vibration_warning = true;
-			mavlink_and_console_log_critical(_mavlink_fd, "HIGH VIBRATION! g: %d a: %d m: %d",
-							 (int)(100 * _voter_gyro.get_vibration_factor(curr_time)),
-							 (int)(100 * _voter_accel.get_vibration_factor(curr_time)),
-							 (int)(100 * _voter_mag.get_vibration_factor(curr_time)));
+			// mavlink_and_console_log_critical(&_mavlink_log_pub, "HIGH VIBRATION! g: %d a: %d m: %d",
+			// 				 (int)(100 * _voter_gyro.get_vibration_factor(curr_time)),
+			// 				 (int)(100 * _voter_accel.get_vibration_factor(curr_time)),
+			// 				 (int)(100 * _voter_mag.get_vibration_factor(curr_time)));
 		}
 
 	} else {
@@ -1523,14 +1536,6 @@ void AttitudePositionEstimatorEKF::pollData()
 
 	//PX4_INFO("dang: %8.4f %8.4f dvel: %8.4f %8.4f", _ekf->dAngIMU.x, _ekf->dAngIMU.z, _ekf->dVelIMU.x, _ekf->dVelIMU.z);
 
-	//Update Land Detector
-	bool newLandData;
-	orb_check(_landDetectorSub, &newLandData);
-
-	if (newLandData) {
-		orb_copy(ORB_ID(vehicle_land_detected), _landDetectorSub, &_landDetector);
-	}
-
 	//Update AirSpeed
 	orb_check(_airspeed_sub, &_newAdsData);
 
@@ -1570,7 +1575,7 @@ void AttitudePositionEstimatorEKF::pollData()
 
 			//Stop dead-reckoning mode
 			if (_global_pos.dead_reckoning) {
-				mavlink_log_info(_mavlink_fd, "[ekf] stop dead-reckoning");
+				mavlink_log_info(&_mavlink_log_pub, "[ekf] stop dead-reckoning");
 			}
 
 			_global_pos.dead_reckoning = false;
@@ -1637,7 +1642,7 @@ void AttitudePositionEstimatorEKF::pollData()
 	if (dtLastGoodGPS >= POS_RESET_THRESHOLD) {
 
 		if (_global_pos.dead_reckoning) {
-			mavlink_log_info(_mavlink_fd, "[ekf] gave up dead-reckoning after long timeout");
+			mavlink_log_info(&_mavlink_log_pub, "[ekf] gave up dead-reckoning after long timeout");
 		}
 
 		_gpsIsGood = false;
@@ -1648,7 +1653,7 @@ void AttitudePositionEstimatorEKF::pollData()
 	else if (dtLastGoodGPS >= 0.5f) {
 		if (_armed.armed) {
 			if (!_global_pos.dead_reckoning) {
-				mavlink_log_info(_mavlink_fd, "[ekf] dead-reckoning enabled");
+				mavlink_log_info(&_mavlink_log_pub, "[ekf] dead-reckoning enabled");
 			}
 
 			_global_pos.dead_reckoning = true;

@@ -41,7 +41,7 @@ set(config_module_list
 	modules/dataman
 	modules/sdlog2
 	modules/commander
-	modules/controllib
+	lib/controllib
 	lib/mathlib
 	lib/mathlib/math/filter
 	lib/conversion
@@ -53,4 +53,5 @@ set(config_module_list
 	lib/terrain_estimation
 	lib/runway_takeoff
 	lib/tailsitter_recovery
+	lib/DriverFramework/framework
 )
