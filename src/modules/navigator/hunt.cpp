@@ -15,7 +15,7 @@
 #include <fcntl.h>
 #include <mathlib/mathlib.h>
 
-#include <mavlink/mavlink_log.h>
+#include <systemlib/mavlink_log.h>
 #include <systemlib/err.h>
 
 #include <uORB/uORB.h>
@@ -97,14 +97,14 @@ Hunt::on_activation()
 	// called when we hunt mode gets activated
 
     // send status updates
-    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] moving to start");  // alert to ground
+    mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] moving to start");  // alert to ground
 
 
 	if (!_started) { // hunt not started, meaning this is the first time we have activated hunt
 		// go to start position
 
         /* send a message that hunt mode has been activated */
-        mavlink_log_info(_navigator->get_mavlink_fd(), "#audio: hunt started");
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "#audio: hunt started");
 
 		// set the state to moving to first position
 		// XXX: maybe don't need state start, and just set it to state move here
@@ -172,7 +172,7 @@ Hunt::on_active()
             reset_mission_item_reached();  // reset mission item status (since we want to move to next thing)
 
             // send status updates
-            mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] travel completed");  // alert to ground
+            mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] travel completed");  // alert to ground
 
             report_cmd_finished();  // pushlish to topic (alert to odroid via mavlink)
 
@@ -194,7 +194,7 @@ Hunt::on_active()
             reset_mission_item_reached();   // reset mission item status
 
             // send status updates
-            mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] rotation completed");
+            mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] rotation completed");
 
             report_cmd_finished();
 
@@ -271,7 +271,7 @@ Hunt::get_next_cmd()
 void
 Hunt::set_next_item()
 {
-    mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] new command received");
+    mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] new command received");
 
     /* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
@@ -294,12 +294,12 @@ Hunt::set_next_item()
 
     /* move commanded */
     case tracking_cmd_s::HUNT_CMD_TRAVEL:
-		mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] traveling");
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] traveling");
 
         _hunt_state = hunt_state_s::HUNT_STATE_MOVE;    // update state
 
 
-        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] cmnd (%d): N: %0.1f, E:%0.1f, A: %0.1f", _tracking_cmd.cmd_id, (double)_tracking_cmd.north, (double)_tracking_cmd.east, (double)_tracking_cmd.altitude);
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] cmnd (%d): N: %0.1f, E:%0.1f, A: %0.1f", _tracking_cmd.cmd_id, (double)_tracking_cmd.north, (double)_tracking_cmd.east, (double)_tracking_cmd.altitude);
 
         // update mission items
 
@@ -319,7 +319,7 @@ Hunt::set_next_item()
 
     /* rotation commanded */
     case tracking_cmd_s::HUNT_CMD_ROTATE:
-        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] rotating");
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] rotating");
 
 		// if we are already in a rotation state, will want to terminate that rotation first
         if (_hunt_state == hunt_state_s::HUNT_STATE_ROTATE) {
@@ -334,7 +334,7 @@ Hunt::set_next_item()
 
     /* finishing commanded */
     case tracking_cmd_s::HUNT_CMD_FINISH:
-        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] finished");
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] finished");
 
         _hunt_state = hunt_state_s::HUNT_STATE_OFF;  // change the hunt state to off
         set_waiting();  // let the vehicle just sit here
@@ -346,7 +346,7 @@ Hunt::set_next_item()
         return;  // straight up return from here...
 
 	default:
-        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] unknown command");
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] unknown command");
 
         // if don't know command, just set to waiting
         set_waiting();
@@ -385,7 +385,7 @@ Hunt::set_next_item()
 void
 Hunt::set_waiting()
 {
-	mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] set to waiting");
+	mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] set to waiting");
 
 	/* get pointer to the position setpoint from the navigator */
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
@@ -427,7 +427,7 @@ Hunt::set_mission_latlon()
         _mission_item.lon = next_lon;
     } else {
         // error
-        mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] unable to do reprojection");
+        mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] unable to do reprojection");
     }
 }
 
@@ -545,7 +545,7 @@ Hunt::update_total_rotation()
     }
 
     // DEBUG
-    //mavlink_log_info(_navigator->get_mavlink_fd(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_total_rotation));
+    //mavlink_log_info(_navigator->get_mavlink_log_pub(), "[HUNT] total rotation: %2.3f deg", (double) math::degrees(_total_rotation));
 }
 
 
