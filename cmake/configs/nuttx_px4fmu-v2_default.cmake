@@ -82,7 +82,7 @@ set(config_module_list
 	# Estimation modules (EKF/ SO3 / other filters)
 	#
 	modules/attitude_estimator_q
-	modules/ekf_att_pos_estimator
+	#modules/ekf_att_pos_estimator
 	modules/position_estimator_inav
 	modules/local_position_estimator
 
@@ -90,11 +90,11 @@ set(config_module_list
 	# Vehicle Control
 	#
 	# modules/segway # XXX Needs GCC 4.7 fix
-	modules/fw_pos_control_l1
-	modules/fw_att_control
+	#modules/fw_pos_control_l1
+	#modules/fw_att_control
 	modules/mc_att_control
 	modules/mc_pos_control
-	modules/vtol_att_control
+	#modules/vtol_att_control
 
 	#
 	# Logging
