@@ -40,11 +40,11 @@
 #ifndef LBMP_H
 #define LBMP_H
 
-#include "gps_helper.h"
+#include "devices/src/gps_helper.h"
 #include "crc32.h"
 
 /* baudrate - for now fixed */
-#define LBMP_BAUDRATE 115200
+#define LBMP_BAUDRATE 57600
 
 /* Locata message IDs */
 #define LBMP_MSG_ID_STD_MEAS 		0x1001
@@ -276,13 +276,13 @@ typedef enum {
 
 
 
-class LBMP : public GPS_Helper
+class GPSDriverLBMP : public GPSHelper
 {
 public:
-    LBMP(const int &fd, struct vehicle_gps_position_s *gps_position);
-    ~LBMP();
+    GPSDriverLBMP(GPSCallbackPtr callback, void *callback_user, struct vehicle_gps_position_s *gps_position);
+    virtual ~GPSDriverLBMP();
     int				receive(unsigned timeout);
-    int				configure(unsigned &baudrate);
+    int				configure(unsigned &baudrate, OutputMode output_mode);
 
     /**
      * Parse the binary LBMP packet

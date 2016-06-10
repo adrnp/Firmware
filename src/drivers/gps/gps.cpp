@@ -102,7 +102,7 @@ public:
 class GPS
 {
 public:
-	GPS(const char *uart_path, bool fake_gps, bool enable_sat_info);
+	GPS(const char *uart_path, bool fake_gps, bool enable_sat_info, bool primary);
 	virtual ~GPS();
 
 	virtual int			init();
@@ -133,6 +133,9 @@ private:
 	float				_rate_rtcm_injection;				///< RTCM message injection rate
 	unsigned			_last_rate_rtcm_injection_count; 		///< counter for number of RTCM messages
 	bool				_fake_gps;					///< fake gps output
+	bool				_primary;					///< whether or not this is the primary GPS unit
+
+	orb_id_t _gps_topic_id;
 
 	static const int _orb_inject_data_fd_count = 4;
 	int _orb_inject_data_fd[_orb_inject_data_fd_count];
@@ -213,7 +216,7 @@ GPS	*g_dev = nullptr;
 
 }
 
-GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info) :
+GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info, bool primary) :
 	_task_should_exit(false),
 	_healthy(false),
 	_mode_changed(false),
@@ -226,7 +229,8 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info) :
 	_rate(0.0f),
 	_rate_rtcm_injection(0.0f),
 	_last_rate_rtcm_injection_count(0),
-	_fake_gps(fake_gps)
+	_fake_gps(fake_gps),
+	_primary(primary)
 {
 	/* store port name */
 	strncpy(_port, uart_path, sizeof(_port));
@@ -248,9 +252,7 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info) :
 		_orb_inject_data_fd[i] = -1;
 	}
 	// set the publish topic id
-	//_gps_topic_id = (_primary) ? ORB_ID(vehicle_gps_position) : ORB_ID(vehicle_gps_position_1);
-
-	_debug_enabled = true;
+	_gps_topic_id = (_primary) ? ORB_ID(vehicle_gps_position) : ORB_ID(vehicle_gps_position_1);
 }
 
 GPS::~GPS()
@@ -573,10 +575,10 @@ GPS::task_main()
 
 
 			if (_report_gps_pos_pub != nullptr) {
-				orb_publish(ORB_ID(vehicle_gps_position), _report_gps_pos_pub, &_report_gps_pos);
+				orb_publish(_gps_topic_id, _report_gps_pos_pub, &_report_gps_pos);
 
 			} else {
-				_report_gps_pos_pub = orb_advertise(ORB_ID(vehicle_gps_position), &_report_gps_pos);
+				_report_gps_pos_pub = orb_advertise(_gps_topic_id, &_report_gps_pos);
 			}
 
 			usleep(2e5);
@@ -603,7 +605,7 @@ GPS::task_main()
 				break;
 
             case GPS_DRIVER_MODE_LBMP:
-                _Helper = new LBMP(_serial_fd, &_report_gps_pos);
+                _helper = new GPSDriverLBMP(&GPS::callback, this, &_report_gps_pos);
                 break;
 
 			default:
@@ -639,10 +641,10 @@ GPS::task_main()
 					_report_gps_pos.fix_type = 0;
 
 					if (_report_gps_pos_pub != nullptr) {
-						orb_publish(ORB_ID(vehicle_gps_position), _report_gps_pos_pub, &_report_gps_pos);
+						orb_publish(_gps_topic_id, _report_gps_pos_pub, &_report_gps_pos);
 
 					} else {
-						_report_gps_pos_pub = orb_advertise(ORB_ID(vehicle_gps_position), &_report_gps_pos);
+						_report_gps_pos_pub = orb_advertise(_gps_topic_id, &_report_gps_pos);
 					}
 
 					/* GPS is obviously detected successfully, reset statistics */
@@ -655,10 +657,10 @@ GPS::task_main()
 
 					if (helper_ret & 1) {
 						if (_report_gps_pos_pub != nullptr) {
-							orb_publish(ORB_ID(vehicle_gps_position), _report_gps_pos_pub, &_report_gps_pos);
+							orb_publish(_gps_topic_id, _report_gps_pos_pub, &_report_gps_pos);
 
 						} else {
-							_report_gps_pos_pub = orb_advertise(ORB_ID(vehicle_gps_position), &_report_gps_pos);
+							_report_gps_pos_pub = orb_advertise(_gps_topic_id, &_report_gps_pos);
 						}
 
 						last_rate_count++;
@@ -703,8 +705,8 @@ GPS::task_main()
 //							break;
 //
 //						case GPS_DRIVER_MODE_LBMP:
-//  				                        mode_str = "LBMP";
-//			                            	break;
+//							mode_str = "LBMP";
+//							break;
 //
 //						default:
 //							break;
@@ -734,7 +736,7 @@ GPS::task_main()
 				break;
 
 			case GPS_DRIVER_MODE_ASHTECH:
-				_mode = GPS_DRIVER_MODE_UBX;
+				_mode = GPS_DRIVER_MODE_LBMP;
 				break;
 
             case GPS_DRIVER_MODE_LBMP:
@@ -797,6 +799,10 @@ GPS::print_info()
 
 		case GPS_DRIVER_MODE_ASHTECH:
 			PX4_WARN("protocol: ASHTECH");
+			break;
+
+		case GPS_DRIVER_MODE_LBMP:
+			PX4_WARN("protocol: LBMP");
 			break;
 
 		default:

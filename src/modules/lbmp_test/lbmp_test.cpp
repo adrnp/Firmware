@@ -65,7 +65,7 @@
 #include <lib/geo/geo.h> 		/*< for conversion from local x,y to lat, lon */
 
 #include <drivers/gps/lbmp.h>
-#include <drivers/gps/gps_helper.h>
+#include <drivers/gps/devices/src/gps_helper.h>
 
 #include <termios.h>
 
@@ -214,7 +214,7 @@ int lbmp_test_main(int argc, char **argv) {
     }
 
     // create the LBMP parser
-    LBMP *_Helper = new LBMP(serial_fd, &_report_gps_pos);
+    GPSDriverLBMP *_Helper = new GPSDriverLBMP(serial_fd, &_report_gps_pos);
 
 
     //ssize_t count = 0;

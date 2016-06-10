@@ -33,7 +33,7 @@
 px4_add_module(
 	MODULE modules__everything_is_awesome
 	MAIN everything_is_awesome
-	STACK 1200
+	STACK_MAIN 1200
 	COMPILE_FLAGS
 		-Wno-sign-compare
 		-Os

@@ -71,8 +71,8 @@
 #define LBMP_TRACE_PARSER(s, ...)	{printf(s, ## __VA_ARGS__);}	/* decoding progress in parse_char() */
 
 
-LBMP::LBMP(const int &fd, struct vehicle_gps_position_s *gps_position) :
-    _fd(fd),
+GPSDriverLBMP::GPSDriverLBMP(GPSCallbackPtr callback, void *callback_user, struct vehicle_gps_position_s *gps_position) :
+    GPSHelper(callback, callback_user),
     _gps_position(gps_position),
     _sync_index(0)
     // TODO: add other constants
@@ -81,16 +81,22 @@ LBMP::LBMP(const int &fd, struct vehicle_gps_position_s *gps_position) :
     decode_init();
 }
 
-LBMP::~LBMP()
+GPSDriverLBMP::~GPSDriverLBMP()
 {
 }
 
 int
-LBMP::configure(unsigned &baudrate)
+GPSDriverLBMP::configure(unsigned &baudrate, OutputMode output_mode)
 {
+    if (output_mode != OutputMode::GPS) {
+        GPS_WARN("LBMP: Unsupported Output Mode %i", (int)output_mode);
+        return -1;
+    }
+
     /* set baudrate first */
-    if (GPS_Helper::set_baudrate(_fd, LBMP_BAUDRATE) != 0) {
-        printf("unable to set baudrate\n");
+    if (GPSHelper::setBaudrate(LBMP_BAUDRATE) != 0) {
+        // DEBUG
+        //printf("[LBMP] unable to set baudrate");
         return -1;
     }
 
@@ -101,20 +107,16 @@ LBMP::configure(unsigned &baudrate)
 
 
 int
-LBMP::receive(unsigned timeout)
+GPSDriverLBMP::receive(unsigned timeout)
 {
-    /* poll descriptor */
-    pollfd fds[1];
-    fds[0].fd = _fd;
-    fds[0].events = POLLIN;
-
+    
     //uint8_t buf[32];
-    uint8_t buf[32];
+    uint8_t buf[128];
 
     /* timeout additional to poll */
-    uint64_t time_started = hrt_absolute_time();
+    gps_abstime time_started = gps_absolute_time();
 
-    ssize_t count = 0;
+    //ssize_t count = 0;
     int handled = 0;
 
     // DEBUG
@@ -123,11 +125,11 @@ LBMP::receive(unsigned timeout)
     while (true) {
 
         /* poll for new data */
-        int ret = ::poll(fds, sizeof(fds) / sizeof(fds[0]), timeout);
+        int ret = read(buf, sizeof(buf), timeout);
 
         if (ret < 0) {
             /* something went wrong when polling */
-            printf("[LBMP] polling error\n");
+            printf("[LBMP] poll_or_read err\n");
             return -1;
 
         } else if (ret == 0) {
@@ -135,32 +137,22 @@ LBMP::receive(unsigned timeout)
             printf("[LBMP] timeout\n");
             return -1;
 
-        } else if (ret > 0) {
-            /* if we have new data from GPS, go handle it */
-            if (fds[0].revents & POLLIN) {
-                /*
-                 * We are here because poll says there is some data, so this
-                 * won't block even on a blocking device. But don't read immediately
-                 * by 1-2 bytes, wait for some more data to save expensive read() calls.
-                 * If more bytes are available, we'll go back to poll() again.
-                 */
-                //usleep(5 * 1000);
-                count = read(_fd, buf, sizeof(buf));
+        } else {
+            /* pass received bytes to the packet decoder */
+            for (int i = 0; i < ret; i++) {
+                handled |= parse_char(buf[i]);
+            }
 
-                /* pass received bytes to the packet decoder */
-                for (int i = 0; i < count; i++) {
-                    handled |= parse_char(buf[i]);
-                }
-
-                /* new message completed, return */
-                if (handled) {
-                    return handled;
-                }
+            /* new message completed, return */
+            if (handled) {
+                // DEBUG
+                //printf("[LBMP] returning message handled");
+                return handled;
             }
         }
 
         /* abort after timeout if no useful packets received */
-        if (time_started + timeout * 1000 < hrt_absolute_time()) {
+        if (time_started + timeout * 1000 < gps_absolute_time()) {
             printf("[LBMP] eol timeout\n");
             return -1;
         }
@@ -169,7 +161,7 @@ LBMP::receive(unsigned timeout)
 
 // initialize all the globals for a successful message decoding
 void
-LBMP::decode_init()
+GPSDriverLBMP::decode_init()
 {
     // DEBUG
     //printf("[LBMP] initializing decoding\n");
@@ -188,14 +180,14 @@ LBMP::decode_init()
 }
 
 void
-LBMP::decode_block_reinit(const int size)
+GPSDriverLBMP::decode_block_reinit(const int size)
 {
     /* reinit the block, filling buffer backwards */
     _block_index = size - 1;
 }
 
 void
-LBMP::decode_checksum_reinit()
+GPSDriverLBMP::decode_checksum_reinit()
 {
     /* reinit the checksum payload, checksum is 4 bytes */
     _checksum_index = LBMP_CHECKSUM_LEN - 1;
@@ -203,7 +195,7 @@ LBMP::decode_checksum_reinit()
 }
 
 int  // 0 = decoding, 1 = message handled, 2 = "sat" message handled
-LBMP::parse_char(const uint8_t c)
+GPSDriverLBMP::parse_char(const uint8_t c)
 {
     int ret = 0;  // default to still decoding
 
@@ -386,7 +378,7 @@ LBMP::parse_char(const uint8_t c)
 
 
 int  // -1 = error, 0 = continue, 1 = completed
-LBMP::payload_rx_add_block(const uint8_t c)
+GPSDriverLBMP::payload_rx_add_block(const uint8_t c)
 {
     int ret = 0;
 
@@ -400,7 +392,7 @@ LBMP::payload_rx_add_block(const uint8_t c)
 }
 
 int  // -1 = error, 0 = continue, 1 = completed
-LBMP::checksum_rx_add(const uint8_t c)
+GPSDriverLBMP::checksum_rx_add(const uint8_t c)
 {
     int ret = 0;
 
@@ -415,7 +407,7 @@ LBMP::checksum_rx_add(const uint8_t c)
 
 
 int  // -1 = error, 0 = continue, 1 = completed
-LBMP::payload_rx_add_nav(const uint8_t c)
+GPSDriverLBMP::payload_rx_add_nav(const uint8_t c)
 {
 
     int ret = 0;
@@ -513,7 +505,7 @@ LBMP::payload_rx_add_nav(const uint8_t c)
 }
 
 int  // 0 = no message handled, 1 = message handled, 2 = "sat" info message handled
-LBMP::payload_rx_done(void)
+GPSDriverLBMP::payload_rx_done(void)
 {
     int ret = 0;
 
@@ -521,13 +513,13 @@ LBMP::payload_rx_done(void)
 
     // TODO: just need to add timestamp and return 1
     // add all the timestamps
-    _gps_position->timestamp_time		= hrt_absolute_time();
-    _gps_position->timestamp_velocity 	= hrt_absolute_time();
-    _gps_position->timestamp_variance 	= hrt_absolute_time();
-    _gps_position->timestamp_position	= hrt_absolute_time();
+    _gps_position->timestamp_time		= gps_absolute_time();
+    _gps_position->timestamp_velocity 	= gps_absolute_time();
+    _gps_position->timestamp_variance 	= gps_absolute_time();
+    _gps_position->timestamp_position	= gps_absolute_time();
 
     // DEBUG
-    //printf("[LBMP} payload completed\n");
+    //printf("[LBMP] payload completed\n");
 
     ret = 1;
     return ret;
