@@ -318,7 +318,7 @@ then
 		unset HIL
 	else
 		unset HIL
-		gps start
+		gps start -s
 	fi
 
 	# waypoint storage
@@ -650,13 +650,19 @@ then
 		else
 			if param compare SYS_LOGGER 0
 			then
-				if sdlog2 start -r 100 -a -b 9 -t
+				if sdlog2 start -r 100 -e -b 9 -t -x
 				then
 				fi
+				#if sdlog2 start -r 100 -a -b 9 -t
+				#then
+				#fi
 			else
-				if logger start -b 12 -t
+				if logger start -b 12 -t -e -x
 				then
 				fi
+				#if logger start -b 12 -t
+				#then
+				#fi
 			fi
 		fi
 	fi
