@@ -77,6 +77,7 @@
 #include <uORB/uORB.h>
 #include <uORB/topics/vehicle_gps_position.h>
 #include <uORB/topics/satellite_info.h>
+#include <uORB/topics/raw_meas.h>
 #include <uORB/topics/gps_inject_data.h>
 #include <uORB/topics/gps_dump.h>
 
@@ -97,6 +98,13 @@ class GPS_Sat_Info
 {
 public:
 	struct satellite_info_s 	_data;
+};
+
+/* class for dynamic allocation of raw measurement data */
+class GPS_Raw_Meas
+{
+public:
+	struct raw_meas_s 	_data;
 };
 
 
@@ -125,11 +133,13 @@ private:
 	bool				_mode_changed;					///< flag that the GPS mode has changed
 	gps_driver_mode_t		_mode;						///< current mode
 	GPSHelper			*_helper;					///< instance of GPS parser
-	GPS_Sat_Info			*_sat_info;					///< instance of GPS sat info data object
+	GPS_Sat_Info		*_sat_info;					///< instance of GPS sat info data object
+	GPS_Raw_Meas		*_raw_meas;					///< instance of GPS raw measurement data object
 	struct vehicle_gps_position_s	_report_gps_pos;				///< uORB topic for gps position
 	orb_advert_t			_report_gps_pos_pub;				///< uORB pub for gps position
 	int					_gps_orb_instance;				///< uORB multi-topic instance
 	struct satellite_info_s		*_p_report_sat_info;				///< pointer to uORB topic for satellite info
+	struct raw_meas_s			*_p_report_raw_meas;				///< pointer to the uORB topic for raw measurement
 	int					_gps_sat_orb_instance;				///< uORB multi-topic instance for satellite info
 	orb_advert_t			_report_sat_info_pub;				///< uORB pub for satellite info
 	float				_rate;						///< position update rate
@@ -250,9 +260,11 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info, int gps_num
 	_mode(GPS_DRIVER_MODE_UBX),
 	_helper(nullptr),
 	_sat_info(nullptr),
+	_raw_meas(nullptr),
 	_report_gps_pos_pub{nullptr},
 	_gps_orb_instance(-1),
 	_p_report_sat_info(nullptr),
+	_p_report_raw_meas(nullptr),
 	_report_sat_info_pub(nullptr),
 	_rate(0.0f),
 	_rate_rtcm_injection(0.0f),
@@ -275,6 +287,10 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info, int gps_num
 		_sat_info = new GPS_Sat_Info();
 		_p_report_sat_info = &_sat_info->_data;
 		memset(_p_report_sat_info, 0, sizeof(*_p_report_sat_info));
+
+		_raw_meas = new GPS_Raw_Meas();
+		_p_report_raw_meas = &_raw_meas->_data;
+		memset(_p_report_raw_meas, 0, sizeof(*_p_report_raw_meas));
 	}
 
 	for (int i = 0; i < _orb_inject_data_fd_count; ++i) {
@@ -705,7 +721,7 @@ GPS::task_main()
 
 			switch (_mode) {
 			case GPS_DRIVER_MODE_UBX:
-				_helper = new GPSDriverUBX(&GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
+				_helper = new GPSDriverUBX(GPSHelper::Interface::UART, &GPS::callback, this, &_report_gps_pos, _p_report_sat_info, _p_report_raw_meas);
 				break;
 
 			case GPS_DRIVER_MODE_MTK:
@@ -756,13 +772,19 @@ GPS::task_main()
 				while ((helper_ret = _helper->receive(TIMEOUT_5HZ)) > 0 && !_task_should_exit) {
 
 					if (helper_ret & 1) {
+						PX4_WARN("publishing position");
 						publish();
 
 						last_rate_count++;
 					}
 
 					if (_p_report_sat_info && (helper_ret & 2)) {
+						PX4_WARN("publishing sat info");
 						publishSatelliteInfo();
+					}
+
+					if (_p_report_raw_meas && (helper_ret & 2)) {
+						PX4_WARN("parsed a raw measurement!");
 					}
 
 					/* measure update rate every 5 seconds */
