@@ -77,6 +77,7 @@
 #include <uORB/uORB.h>
 #include <uORB/topics/vehicle_gps_position.h>
 #include <uORB/topics/satellite_info.h>
+#include <uORB/topics/gps_raw_measurements.h>
 #include <uORB/topics/gps_inject_data.h>
 #include <uORB/topics/gps_dump.h>
 
@@ -85,6 +86,7 @@
 #include "devices/src/ubx.h"
 #include "devices/src/mtk.h"
 #include "devices/src/ashtech.h"
+#include "devices/src/sbp.h"
 
 
 #define TIMEOUT_5HZ 500
@@ -705,7 +707,7 @@ GPS::task_main()
 
 			switch (_mode) {
 			case GPS_DRIVER_MODE_UBX:
-				_helper = new GPSDriverUBX(&GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
+				_helper = new GPSDriverUBX(GPSHelper::Interface::UART, &GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
 				break;
 
 			case GPS_DRIVER_MODE_MTK:
@@ -714,6 +716,10 @@ GPS::task_main()
 
 			case GPS_DRIVER_MODE_ASHTECH:
 				_helper = new GPSDriverAshtech(&GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
+				break;
+
+			case GPS_DRIVER_MODE_SBP:
+				_helper = new GPSDriverSBP(&GPS::callback, this, &_report_gps_pos);
 				break;
 
 			default:
@@ -822,6 +828,10 @@ GPS::task_main()
 				break;
 
 			case GPS_DRIVER_MODE_ASHTECH:
+				_mode = GPS_DRIVER_MODE_SBP;
+				break;
+
+			case GPS_DRIVER_MODE_SBP:
 				_mode = GPS_DRIVER_MODE_UBX;
 				break;
 
@@ -889,6 +899,10 @@ GPS::print_info()
 
 		case GPS_DRIVER_MODE_ASHTECH:
 			PX4_WARN("protocol: ASHTECH");
+			break;
+
+		case GPS_DRIVER_MODE_SBP:
+			PX4_WARN("protocol: SBP");
 			break;
 
 		default:
