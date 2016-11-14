@@ -101,6 +101,13 @@ public:
 	struct satellite_info_s 	_data;
 };
 
+/* class for dynamic allocation of raw measurement data */
+class GPS_Raw_Measurement
+{
+public:
+	struct gps_raw_measurements_s	_data;
+};
+
 
 class GPS
 {
@@ -128,12 +135,16 @@ private:
 	gps_driver_mode_t		_mode;						///< current mode
 	GPSHelper			*_helper;					///< instance of GPS parser
 	GPS_Sat_Info			*_sat_info;					///< instance of GPS sat info data object
+	GPS_Raw_Measurement *_raw_measurements;				///< instance of GPS raw measurement data object
 	struct vehicle_gps_position_s	_report_gps_pos;				///< uORB topic for gps position
 	orb_advert_t			_report_gps_pos_pub;				///< uORB pub for gps position
 	int					_gps_orb_instance;				///< uORB multi-topic instance
 	struct satellite_info_s		*_p_report_sat_info;				///< pointer to uORB topic for satellite info
 	int					_gps_sat_orb_instance;				///< uORB multi-topic instance for satellite info
 	orb_advert_t			_report_sat_info_pub;				///< uORB pub for satellite info
+	struct gps_raw_measurements_s	*_p_report_raw_measurements;	///< pointer to uORB topic for raw measurements
+	orb_advert_t 			_report_raw_meas_pub;			///< uORB pub for raw measurements
+	int 					_gps_raw_orb_instance;			///< uORB multi-topic instance for raw measurements
 	float				_rate;						///< position update rate
 	float				_rate_rtcm_injection;				///< RTCM message injection rate
 	unsigned			_last_rate_rtcm_injection_count; 		///< counter for number of RTCM messages
@@ -182,6 +193,11 @@ private:
 	 * Publish the satellite info
 	 */
 	void 				publishSatelliteInfo();
+
+	/**
+	 * Public the raw measurements
+	 */
+	void 				publishRawMeasurements();
 
 	/**
 	 * This is an abstraction for the poll on serial used.
@@ -252,10 +268,13 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info, int gps_num
 	_mode(GPS_DRIVER_MODE_UBX),
 	_helper(nullptr),
 	_sat_info(nullptr),
+	_raw_measurements(nullptr),
 	_report_gps_pos_pub{nullptr},
 	_gps_orb_instance(-1),
 	_p_report_sat_info(nullptr),
 	_report_sat_info_pub(nullptr),
+	_p_report_raw_measurements(nullptr),
+	_report_raw_meas_pub(nullptr),
 	_rate(0.0f),
 	_rate_rtcm_injection(0.0f),
 	_last_rate_rtcm_injection_count(0),
@@ -277,6 +296,12 @@ GPS::GPS(const char *uart_path, bool fake_gps, bool enable_sat_info, int gps_num
 		_sat_info = new GPS_Sat_Info();
 		_p_report_sat_info = &_sat_info->_data;
 		memset(_p_report_sat_info, 0, sizeof(*_p_report_sat_info));
+
+		// for now just piggyback on this flag for recording raw measurements
+		// though will make it that only the secondary GPS can log raw measurements!
+		_raw_measurements = new GPS_Raw_Measurement();
+		_p_report_raw_measurements = &_raw_measurements->_data;
+		memset(_p_report_raw_measurements, 0, sizeof(*_p_report_raw_measurements));
 	}
 
 	for (int i = 0; i < _orb_inject_data_fd_count; ++i) {
@@ -302,6 +327,10 @@ GPS::~GPS()
 
 	if (_sat_info) {
 		delete(_sat_info);
+	}
+
+	if (_raw_measurements) {
+		delete(_raw_measurements);
 	}
 
 	if (_dump_to_device) {
@@ -719,7 +748,7 @@ GPS::task_main()
 				break;
 
 			case GPS_DRIVER_MODE_SBP:
-				_helper = new GPSDriverSBP(&GPS::callback, this, &_report_gps_pos);
+				_helper = new GPSDriverSBP(&GPS::callback, this, &_report_gps_pos, _p_report_raw_measurements);
 				break;
 
 			default:
@@ -736,7 +765,7 @@ GPS::task_main()
 				/* reset report */
 				memset(&_report_gps_pos, 0, sizeof(_report_gps_pos));
 
-				if (_mode == GPS_DRIVER_MODE_UBX) {
+				if (_mode == GPS_DRIVER_MODE_UBX || _mode == GPS_DRIVER_MODE_SBP) {
 					/* Publish initial report that we have access to a GPS,
 					 * but set all critical state fields to indicate we have
 					 * no valid position lock
@@ -771,6 +800,10 @@ GPS::task_main()
 						publishSatelliteInfo();
 					}
 
+					if (_p_report_raw_measurements && (helper_ret & 4)) {
+						publishRawMeasurements();
+					}
+
 					/* measure update rate every 5 seconds */
 					if (hrt_absolute_time() - last_rate_measurement > RATE_MEASUREMENT_PERIOD) {
 						float dt = (float)((hrt_absolute_time() - last_rate_measurement)) / 1000000.0f;
@@ -785,26 +818,30 @@ GPS::task_main()
 
 					if (!_healthy) {
 						// Helpful for debugging, but too verbose for normal ops
-//						const char *mode_str = "unknown";
-//
-//						switch (_mode) {
-//						case GPS_DRIVER_MODE_UBX:
-//							mode_str = "UBX";
-//							break;
-//
-//						case GPS_DRIVER_MODE_MTK:
-//							mode_str = "MTK";
-//							break;
-//
-//						case GPS_DRIVER_MODE_ASHTECH:
-//							mode_str = "ASHTECH";
-//							break;
-//
-//						default:
-//							break;
-//						}
-//
-//						PX4_WARN("module found: %s", mode_str);
+						const char *mode_str = "unknown";
+
+						switch (_mode) {
+						case GPS_DRIVER_MODE_UBX:
+							mode_str = "UBX";
+							break;
+
+						case GPS_DRIVER_MODE_MTK:
+							mode_str = "MTK";
+							break;
+
+						case GPS_DRIVER_MODE_ASHTECH:
+							mode_str = "ASHTECH";
+							break;
+
+						case GPS_DRIVER_MODE_SBP:
+							mode_str = "SBP";
+							break;
+
+						default:
+							break;
+						}
+
+						PX4_WARN("module found: %s", mode_str);
 						_healthy = true;
 					}
 				}
@@ -957,6 +994,18 @@ GPS::publishSatelliteInfo()
 
 	} else {
 		//we don't publish satellite info for the secondary gps
+	}
+
+}
+void
+GPS::publishRawMeasurements()
+{
+	if (_gps_num == 1) {
+		// for now only publish raw measurements for the secondary gps, not the primary
+
+	} else {
+		orb_publish_auto(ORB_ID(gps_raw_measurements), &_report_raw_meas_pub, _p_report_raw_measurements, &_gps_raw_orb_instance,
+				 ORB_PRIO_DEFAULT);
 	}
 
 }
