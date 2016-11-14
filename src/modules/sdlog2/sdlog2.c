@@ -111,6 +111,7 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/commander_state.h>
 #include <uORB/topics/cpuload.h>
+#include <uORB/topics/gps_raw_measurements.h>
 
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
@@ -1218,6 +1219,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		struct vehicle_land_detected_s land_detected;
 		struct cpuload_s cpuload;
 		struct vehicle_gps_position_s dual_gps_pos;
+		struct gps_raw_measurements_s gps_raw_meas;
 	} buf;
 
 	memset(&buf, 0, sizeof(buf));
@@ -1279,6 +1281,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 			struct log_LAND_s log_LAND;
 			struct log_RPL6_s log_RPL6;
 			struct log_LOAD_s log_LOAD;
+			struct log_GRAW_s log_GRAW;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -1328,6 +1331,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int land_detected_sub;
 		int commander_state_sub;
 		int cpuload_sub;
+		int raw_gps_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1370,6 +1374,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 	subs.land_detected_sub = -1;
 	subs.commander_state_sub = -1;
 	subs.cpuload_sub = -1;
+	subs.raw_gps_sub = -1;
 
 	/* add new topics HERE */
 
@@ -2294,6 +2299,39 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_LOAD.cpu_load = buf.cpuload.load;
 			LOGBUFFER_WRITE_AND_COUNT(LOAD);
 
+		}
+
+		/* --- RAW GPS MEASUREMENTS --- */
+		if (copy_if_updated(ORB_ID(gps_raw_measurements), &subs.raw_gps_sub, &buf.gps_raw_meas)) {
+			uint32_t tow = buf.gps_raw_meas.tow;
+			uint16_t wn = buf.gps_raw_meas.wn;
+			int8_t nobs = buf.gps_raw_meas.nobs;
+			// TODO: should probably just have a smaller message that contains this header info
+
+			for (int i = 0; i < nobs; i += 2) {
+				log_msg.msg_type = LOG_RAW0_MSG + i/2;
+				log_msg.body.log_GRAW.tow = tow;
+				log_msg.body.log_GRAW.wn = wn;
+				log_msg.body.log_GRAW.nobs = nobs;
+				log_msg.body.log_GRAW.p[0] = buf.gps_raw_meas.psuedorange[i];
+				log_msg.body.log_GRAW.ci[0] = buf.gps_raw_meas.carrier_i[i];
+				log_msg.body.log_GRAW.cf[0] = buf.gps_raw_meas.carrier_f[i];
+				log_msg.body.log_GRAW.cn0[0] = buf.gps_raw_meas.cn0[i];
+				log_msg.body.log_GRAW.lock[0] = buf.gps_raw_meas.lock[i];
+				log_msg.body.log_GRAW.prn[0] = buf.gps_raw_meas.prn[i];
+
+				// add the second observation to the set if we still have more observations
+				if ((i+1) < nobs) {
+					log_msg.body.log_GRAW.p[1] = buf.gps_raw_meas.psuedorange[i+1];
+					log_msg.body.log_GRAW.ci[1] = buf.gps_raw_meas.carrier_i[i+1];
+					log_msg.body.log_GRAW.cf[1] = buf.gps_raw_meas.carrier_f[i+1];
+					log_msg.body.log_GRAW.cn0[1] = buf.gps_raw_meas.cn0[i+1];
+					log_msg.body.log_GRAW.lock[1] = buf.gps_raw_meas.lock[i+1];
+					log_msg.body.log_GRAW.prn[1] = buf.gps_raw_meas.prn[i+1];
+				}
+
+				LOGBUFFER_WRITE_AND_COUNT(GRAW);
+			}
 		}
 
 		pthread_mutex_lock(&logbuffer_mutex);
