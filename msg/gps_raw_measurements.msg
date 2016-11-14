@@ -1,4 +1,4 @@
-uint8 SAT_INFO_MAX_SATELLITES = 20
+uint8 GPS_RAW_MEASUREMENTS_MAX_SATELLITES = 20
 
 uint32 tow		# gps time of week of the measurement [ms]
 uint16 wn 		# gps week number
