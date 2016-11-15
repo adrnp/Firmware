@@ -1282,6 +1282,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 			struct log_RPL6_s log_RPL6;
 			struct log_LOAD_s log_LOAD;
 			struct log_GRAW_s log_GRAW;
+			struct log_GRWH_s log_GRWH;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -2303,16 +2304,20 @@ int sdlog2_thread_main(int argc, char *argv[])
 
 		/* --- RAW GPS MEASUREMENTS --- */
 		if (copy_if_updated(ORB_ID(gps_raw_measurements), &subs.raw_gps_sub, &buf.gps_raw_meas)) {
-			uint32_t tow = buf.gps_raw_meas.tow;
-			uint16_t wn = buf.gps_raw_meas.wn;
 			int8_t nobs = buf.gps_raw_meas.nobs;
-			// TODO: should probably just have a smaller message that contains this header info
+
+			log_msg.msg_type = LOG_GRWH_MSG;
+			log_msg.body.log_GRWH.tow = buf.gps_raw_meas.tow;
+			log_msg.body.log_GRWH.wn = buf.gps_raw_meas.wn;
+			log_msg.body.log_GRWH.nobs = nobs;
+			LOGBUFFER_WRITE_AND_COUNT(GRWH);
 
 			for (int i = 0; i < nobs; i += 2) {
+				// can only save 12 (up to i = 11) observations at the moment
+				if (i > 10) {
+					break;
+				}
 				log_msg.msg_type = LOG_RAW0_MSG + i/2;
-				log_msg.body.log_GRAW.tow = tow;
-				log_msg.body.log_GRAW.wn = wn;
-				log_msg.body.log_GRAW.nobs = nobs;
 				log_msg.body.log_GRAW.p[0] = buf.gps_raw_meas.psuedorange[i];
 				log_msg.body.log_GRAW.ci[0] = buf.gps_raw_meas.carrier_i[i];
 				log_msg.body.log_GRAW.cf[0] = buf.gps_raw_meas.carrier_f[i];
@@ -2328,6 +2333,14 @@ int sdlog2_thread_main(int argc, char *argv[])
 					log_msg.body.log_GRAW.cn0[1] = buf.gps_raw_meas.cn0[i+1];
 					log_msg.body.log_GRAW.lock[1] = buf.gps_raw_meas.lock[i+1];
 					log_msg.body.log_GRAW.prn[1] = buf.gps_raw_meas.prn[i+1];
+				} else {
+					// need to 0 out these values or else will have the previous loop iteration values in it
+					log_msg.body.log_GRAW.p[1] = 0;
+					log_msg.body.log_GRAW.ci[1] = 0;
+					log_msg.body.log_GRAW.cf[1] = 0;
+					log_msg.body.log_GRAW.cn0[1] = 0;
+					log_msg.body.log_GRAW.lock[1] = 0;
+					log_msg.body.log_GRAW.prn[1] = 0;
 				}
 
 				LOGBUFFER_WRITE_AND_COUNT(GRAW);

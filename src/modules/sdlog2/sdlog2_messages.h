@@ -627,7 +627,15 @@ struct log_LOAD_s {
 
 
 
-/* --- GPS RAW MEASUREMENTS Part 1 --- */
+/* --- GPS RAW MEASUREMENTS Part 1 - header information --- */
+#define LOG_GRWH_MSG 76
+struct log_GRWH_s {
+	uint32_t tow;
+	uint16_t wn;
+	int8_t nobs;
+};
+
+/* --- GPS RAW MEASUREMENTS Part 2 - the actual measurements --- */
 #define LOG_RAW0_MSG 70
 #define LOG_RAW1_MSG 71
 #define LOG_RAW2_MSG 72
@@ -635,9 +643,6 @@ struct log_LOAD_s {
 #define LOG_RAW4_MSG 74
 #define LOG_RAW5_MSG 75
 struct log_GRAW_s {
-	uint32_t tow;
-	uint16_t wn;
-	int8_t nobs;
 	uint32_t p[2];
 	int32_t ci[2];
 	uint8_t cf[2];
@@ -736,12 +741,13 @@ static const struct log_format_s log_formats[] = {
 	LOG_FORMAT(RPL6, "Qff", "Tasp,inAsp,trAsp"),
 	LOG_FORMAT(LAND, "B", "Landed"),
 	LOG_FORMAT(LOAD, "f", "CPU"),
-	LOG_FORMAT_S(RAW0, GRAW, "IHbIIiiBBBBHHBB", "tow,wn,n,p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
-	LOG_FORMAT_S(RAW1, GRAW, "IHbIIiiBBBBHHBB", "tow,wn,n,p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
-	LOG_FORMAT_S(RAW2, GRAW, "IHbIIiiBBBBHHBB", "tow,wn,n,p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
-	LOG_FORMAT_S(RAW3, GRAW, "IHbIIiiBBBBHHBB", "tow,wn,n,p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
-	LOG_FORMAT_S(RAW4, GRAW, "IHbIIiiBBBBHHBB", "tow,wn,n,p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
-	LOG_FORMAT_S(RAW5, GRAW, "IHbIIiiBBBBHHBB", "tow,wn,n,p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT(GRWH, "IHb", "tow,wn,n"),
+	LOG_FORMAT_S(RAW0, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW1, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW2, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW3, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW4, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW5, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
 	/* system-level messages, ID >= 0x80 */
 	/* FMT: don't write format of format message, it's useless */
 	LOG_FORMAT(TIME, "Q", "StartTime"),
