@@ -757,6 +757,90 @@ static const struct log_format_s log_formats[] = {
 
 static const unsigned log_formats_num = sizeof(log_formats) / sizeof(log_formats[0]);
 
+
+static const struct log_format_s log_formats_system[] = {
+	/* system-level messages, ID >= 0x80 */
+	/* FMT: don't write format of format message, it's useless */
+	LOG_FORMAT(TIME, "Q", "StartTime"),
+	LOG_FORMAT(VER, "NZ", "Arch,FwGit"),
+	LOG_FORMAT(PARM, "Nf", "Name,Value")
+};
+
+static const struct log_format_s log_formats_core_sensors[] = {
+	LOG_FORMAT(ATT, "fffffffffffff",	"qw,qx,qy,qz,Roll,Pitch,Yaw,RollRate,PitchRate,YawRate,GX,GY,GZ"),
+	LOG_FORMAT_S(IMU, IMU, "ffffffffffff",		"AccX,AccY,AccZ,GyroX,GyroY,GyroZ,MagX,MagY,MagZ,tA,tG,tM"),
+	LOG_FORMAT_S(IMU1, IMU, "ffffffffffff",		"AccX,AccY,AccZ,GyroX,GyroY,GyroZ,MagX,MagY,MagZ,tA,tG,tM"),
+	LOG_FORMAT_S(IMU2, IMU, "ffffffffffff",		"AccX,AccY,AccZ,GyroX,GyroY,GyroZ,MagX,MagY,MagZ,tA,tG,tM"),
+	LOG_FORMAT_S(SENS, SENS, "fffff",		"BaroPres,BaroAlt,BaroTemp,DiffPres,DiffPresFilt"),
+	LOG_FORMAT_S(AIR1, SENS, "fffff",	"BaroPa,BaroAlt,BaroTmp,DiffPres,DiffPresF"),
+	LOG_FORMAT(LPOS, "ffffffffLLfBBff",	"X,Y,Z,Dist,DistR,VX,VY,VZ,RLat,RLon,RAlt,PFlg,GFlg,EPH,EPV"),
+	LOG_FORMAT(GPS, "QBffLLfffffBHHH",	"GPSTime,Fix,EPH,EPV,Lat,Lon,Alt,VelN,VelE,VelD,Cog,nSat,SNR,N,J"),
+	LOG_FORMAT_S(DGPS, GPS,	 "QBffLLfffffBHHH",	"GPSTime,Fix,EPH,EPV,Lat,Lon,Alt,VelN,VelE,VelD,Cog,nSat,SNR,N,J"),
+	LOG_FORMAT(GPOS, "LLfffffff",		"Lat,Lon,Alt,VelN,VelE,VelD,EPH,EPV,TALT"),
+	LOG_FORMAT(AIRS, "fff",			"IndSpeed,TrueSpeed,AirTemp"),
+	LOG_FORMAT(BATT, "ffffffB",		"V,VFilt,C,CFilt,Discharged,Remaining,Warning"),
+	LOG_FORMAT(PWR, "fffBBBBB",		"Periph5V,Servo5V,RSSI,UsbOk,BrickOk,ServoOk,PeriphOC,HipwrOC"),
+	LOG_FORMAT(LOAD, "f", "CPU")
+};
+
+
+static const struct log_format_s log_formats_ext_sensors[] = {
+	LOG_FORMAT(DIST, "BBBff",			"Id,Type,Orientation,Distance,Covariance"),
+	LOG_FORMAT_S(TEL0, TEL, "BBBBHHBQ",		"RSSI,RemRSSI,Noise,RemNoise,RXErr,Fixed,TXBuf,HbTime"),
+	LOG_FORMAT_S(TEL1, TEL, "BBBBHHBQ",		"RSSI,RemRSSI,Noise,RemNoise,RXErr,Fixed,TXBuf,HbTime"),
+	LOG_FORMAT_S(TEL2, TEL, "BBBBHHBQ",		"RSSI,RemRSSI,Noise,RemNoise,RXErr,Fixed,TXBuf,HbTime"),
+	LOG_FORMAT_S(TEL3, TEL, "BBBBHHBQ",		"RSSI,RemRSSI,Noise,RemNoise,RXErr,Fixed,TXBuf,HbTime"),
+	LOG_FORMAT(MOCP, "fffffff",		"QuatW,QuatX,QuatY,QuatZ,X,Y,Z"),
+	LOG_FORMAT(VISN, "ffffffffff",		"X,Y,Z,VX,VY,VZ,QuatW,QuatX,QuatY,QuatZ"),
+};
+
+static const struct log_format_s log_formats_ext_gps[] = {
+	LOG_FORMAT(GS0A, "BBBBBBBBBBBBBBBB",	"s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15"),
+	LOG_FORMAT(GS0B, "BBBBBBBBBBBBBBBB",	"s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15"),
+	LOG_FORMAT(GS1A, "BBBBBBBBBBBBBBBB",	"s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15"),
+	LOG_FORMAT(GS1B, "BBBBBBBBBBBBBBBB",	"s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15"),
+	LOG_FORMAT(GRWH, "IHb", "tow,wn,n"),
+	LOG_FORMAT_S(RAW0, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW1, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW2, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW3, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW4, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1"),
+	LOG_FORMAT_S(RAW5, GRAW, "IIiiBBBBHHBB", "p0,p1,ci0,ci1,cf0,cf1,cn00,cn01,lk0,lk1,prn0,prn1")
+};
+
+static const struct log_format_s log_formats_estimators[] = {
+	LOG_FORMAT(EST0, "ffffffffffffBBHB",	"s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,nStat,fNaN,fFault,fTOut"),
+	LOG_FORMAT(EST1, "ffffffffffffffff",	"s12,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23,s24,s25,s26,s27"),
+	LOG_FORMAT(EST2, "ffffffffffffHHB",    "P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,GCHK,CTRL,fHealth"),
+	LOG_FORMAT(EST3, "ffffffffffffffff",    "P12,P13,P14,P15,P16,P17,P18,P19,P20,P21,P22,P23,P24,P25,P26,P27"),
+	LOG_FORMAT(EST4, "ffffffffffff", "VxI,VyI,VzI,PxI,PyI,PzI,VxIV,VyIV,VzIV,PxIV,PyIV,PzIV"),
+	LOG_FORMAT(EST5, "ffffffffff", "MAGxI,MAGyI,MAGzI,MAGxIV,MAGyIV,MAGzIV,HeadI,HeadIV,AirI,AirIV"),
+	LOG_FORMAT(EST6, "ffffff", "FxI,FyI,FxIV,FyIV,HAGLI,HAGLIV"),
+	LOG_FORMAT(RPL1, "QffQQffffffffff", "t,gIdt,aIdt,Tm,Tb,gx,gy,gz,ax,ay,az,magX,magY,magZ,b_alt"),
+	LOG_FORMAT(RPL2, "QQLLiMMfffffffM", "Tpos,Tvel,lat,lon,alt,fix,nsats,eph,epv,sacc,v,vN,vE,vD,v_val"),
+	LOG_FORMAT(RPL3, "QffffIB", "Tflow,fx,fy,gx,gy,delT,qual"),
+	LOG_FORMAT(RPL4, "Qf", "Trng,rng"),
+	LOG_FORMAT(RPL5, "Qfffffffff", "Tev,x,y,z,q0,q1,q2,q3,posErr,angErr"),
+	LOG_FORMAT(RPL6, "Qff", "Tasp,inAsp,trAsp"),
+	LOG_FORMAT(TECS, "ffffffffffffffB",	"ASP,AF,FSP,F,AsSP,AsF,AsDSP,AsD,EE,ERE,EDE,EDRE,PtchI,ThrI,M")
+};
+
+static const struct log_format_s log_formats_navigation[] = {
+	LOG_FORMAT(ATSP, "ffffffff",		"RollSP,PitchSP,YawSP,ThrustSP,qw,qx,qy,qz"),
+	LOG_FORMAT(LPSP, "ffffffffff",		"X,Y,Z,Yaw,VX,VY,VZ,AX,AY,AZ"),
+	LOG_FORMAT_S(ATTC, ATTC, "ffff",		"Roll,Pitch,Yaw,Thrust"),
+	LOG_FORMAT_S(ATC1, ATTC, "ffff",		"Roll,Pitch,Yaw,Thrust"),
+	LOG_FORMAT(ARSP, "fff",			"RollRateSP,PitchRateSP,YawRateSP"),
+	LOG_FORMAT(GPSP, "BLLffBfbf",		"NavState,Lat,Lon,Alt,Yaw,Type,LoitR,LoitDir,PitMin"),
+	LOG_FORMAT(GVSP, "fff",			"VX,VY,VZ")
+};
+
+static const struct log_format_s log_formats_state[] = {
+	LOG_FORMAT(STAT, "BBBBB",		"MainState,NavState,ArmS,Failsafe,IsRotWing"),
+	LOG_FORMAT(VTOL, "fBBB",		"Arsp,RwMode,TransMode,Failsafe"),
+	LOG_FORMAT(CTS, "fffffff", "Vx_b,Vy_b,Vz_b,Vinf,P,Q,R")
+};
+
 #endif
 
 #endif /* SDLOG2_MESSAGES_H_ */

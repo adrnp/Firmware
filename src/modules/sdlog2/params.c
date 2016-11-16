@@ -93,3 +93,16 @@ PARAM_DEFINE_INT32(SDLOG_GPSTIME, 1);
  * @group SD Logging
  */
 PARAM_DEFINE_INT32(SDLOG_PRIO_BOOST, 2);
+
+/**
+ * Logging message selection mask
+ * 
+ * A set of masks for being able to turn on and off different 
+ * categories of logging.
+ * Helps with being able to customize logged data.
+ *
+ * @min 0
+ * @max  65535
+ * @group SD Logging
+ */
+PARAM_DEFINE_INT32(SDLOG_MASK, 37);
