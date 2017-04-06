@@ -62,13 +62,15 @@
 #include <board_config.h>
 #include <drivers/drv_hrt.h>
 
-#include "chip.h"
-#include "up_internal.h"
-#include "up_arch.h"
 
-#include "stm32.h"
 #include "stm32_gpio.h"
 #include "stm32_tim.h"
+
+#ifdef CONFIG_DEBUG_HRT
+#  define hrtinfo _info
+#else
+#  define hrtinfo(x...)
+#endif
 
 #ifdef HRT_TIMER
 
@@ -460,7 +462,7 @@ hrt_ppm_decode(uint32_t status)
 		goto error;
 	}
 
-	/* how long since the last edge? - this handles counter wrapping implicitely. */
+	/* how long since the last edge? - this handles counter wrapping implicitly. */
 	width = count - ppm.last_edge;
 
 #if PPM_DEBUG
@@ -504,7 +506,7 @@ hrt_ppm_decode(uint32_t status)
 
 		} else {
 			/* frame channel count matches expected, let's use it */
-			if (ppm.next_channel > PPM_MIN_CHANNELS) {
+			if (ppm.next_channel >= PPM_MIN_CHANNELS) {
 				for (i = 0; i < ppm.next_channel; i++) {
 					ppm_buffer[i] = ppm_temp_buffer[i];
 				}
@@ -667,7 +669,7 @@ hrt_absolute_time(void)
 	static volatile uint32_t last_count;
 
 	/* prevent re-entry */
-	flags = irqsave();
+	flags = px4_enter_critical_section();
 
 	/* get the current counter value */
 	count = rCNT;
@@ -689,7 +691,7 @@ hrt_absolute_time(void)
 	/* compute the current time */
 	abstime = HRT_COUNTER_SCALE(base_time + count);
 
-	irqrestore(flags);
+	px4_leave_critical_section(flags);
 
 	return abstime;
 }
@@ -725,11 +727,11 @@ abstime_to_ts(struct timespec *ts, hrt_abstime abstime)
 hrt_abstime
 hrt_elapsed_time(const volatile hrt_abstime *then)
 {
-	irqstate_t flags = irqsave();
+	irqstate_t flags = px4_enter_critical_section();
 
 	hrt_abstime delta = hrt_absolute_time() - *then;
 
-	irqrestore(flags);
+	px4_leave_critical_section(flags);
 
 	return delta;
 }
@@ -740,11 +742,11 @@ hrt_elapsed_time(const volatile hrt_abstime *then)
 hrt_abstime
 hrt_store_absolute_time(volatile hrt_abstime *now)
 {
-	irqstate_t flags = irqsave();
+	irqstate_t flags = px4_enter_critical_section();
 
 	hrt_abstime ts = hrt_absolute_time();
 
-	irqrestore(flags);
+	px4_leave_critical_section(flags);
 
 	return ts;
 }
@@ -760,7 +762,7 @@ hrt_init(void)
 
 #ifdef HRT_PPM_CHANNEL
 	/* configure the PPM input pin */
-	stm32_configgpio(GPIO_PPM_IN);
+	px4_arch_configgpio(GPIO_PPM_IN);
 #endif
 }
 
@@ -802,7 +804,7 @@ hrt_call_every(struct hrt_call *entry, hrt_abstime delay, hrt_abstime interval, 
 static void
 hrt_call_internal(struct hrt_call *entry, hrt_abstime deadline, hrt_abstime interval, hrt_callout callout, void *arg)
 {
-	irqstate_t flags = irqsave();
+	irqstate_t flags = px4_enter_critical_section();
 
 	/* if the entry is currently queued, remove it */
 	/* note that we are using a potentially uninitialised
@@ -823,7 +825,7 @@ hrt_call_internal(struct hrt_call *entry, hrt_abstime deadline, hrt_abstime inte
 
 	hrt_call_enter(entry);
 
-	irqrestore(flags);
+	px4_leave_critical_section(flags);
 }
 
 /**
@@ -843,7 +845,7 @@ hrt_called(struct hrt_call *entry)
 void
 hrt_cancel(struct hrt_call *entry)
 {
-	irqstate_t flags = irqsave();
+	irqstate_t flags = px4_enter_critical_section();
 
 	sq_rem(&entry->link, &callout_queue);
 	entry->deadline = 0;
@@ -853,7 +855,7 @@ hrt_cancel(struct hrt_call *entry)
 	 */
 	entry->period = 0;
 
-	irqrestore(flags);
+	px4_leave_critical_section(flags);
 }
 
 static void
@@ -865,7 +867,7 @@ hrt_call_enter(struct hrt_call *entry)
 
 	if ((call == NULL) || (entry->deadline < call->deadline)) {
 		sq_addfirst(&entry->link, &callout_queue);
-		//lldbg("call enter at head, reschedule\n");
+		hrtinfo("call enter at head, reschedule\n");
 		/* we changed the next deadline, reschedule the timer event */
 		hrt_call_reschedule();
 
@@ -874,14 +876,14 @@ hrt_call_enter(struct hrt_call *entry)
 			next = (struct hrt_call *)sq_next(&call->link);
 
 			if ((next == NULL) || (entry->deadline < next->deadline)) {
-				//lldbg("call enter after head\n");
+				hrtinfo("call enter after head\n");
 				sq_addafter(&call->link, &entry->link, &callout_queue);
 				break;
 			}
 		} while ((call = next) != NULL);
 	}
 
-	//lldbg("scheduled\n");
+	hrtinfo("scheduled\n");
 }
 
 static void
@@ -905,7 +907,7 @@ hrt_call_invoke(void)
 		}
 
 		sq_rem(&call->link, &callout_queue);
-		//lldbg("call pop\n");
+		hrtinfo("call pop\n");
 
 		/* save the intended deadline for periodic calls */
 		deadline = call->deadline;
@@ -915,7 +917,7 @@ hrt_call_invoke(void)
 
 		/* invoke the callout (if there is one) */
 		if (call->callout) {
-			//lldbg("call %p: %p(%p)\n", call, call->callout, call->arg);
+			hrtinfo("call %p: %p(%p)\n", call, call->callout, call->arg);
 			call->callout(call->arg);
 		}
 
@@ -958,19 +960,20 @@ hrt_call_reschedule()
 	 * hrt_absolute_time runs at least once per timer period.
 	 */
 	if (next != NULL) {
-		//lldbg("entry in queue\n");
+		hrtinfo("entry in queue\n");
+
 		if (next->deadline <= (now + HRT_INTERVAL_MIN)) {
-			//lldbg("pre-expired\n");
+			hrtinfo("pre-expired\n");
 			/* set a minimal deadline so that we call ASAP */
 			deadline = now + HRT_INTERVAL_MIN;
 
 		} else if (next->deadline < deadline) {
-			//lldbg("due soon\n");
+			hrtinfo("due soon\n");
 			deadline = next->deadline;
 		}
 	}
 
-	//lldbg("schedule for %u at %u\n", (unsigned)(deadline & 0xffffffff), (unsigned)(now & 0xffffffff));
+	hrtinfo("schedule for %u at %u\n", (unsigned)(deadline & 0xffffffff), (unsigned)(now & 0xffffffff));
 
 	/* set the new compare value and remember it for latency tracking */
 	rCCR_HRT = latency_baseline = deadline & 0xffff;

@@ -33,9 +33,8 @@
 px4_add_module(
 	MODULE drivers__frsky_telemetry
 	MAIN frsky_telemetry
-	STACK 1200
+	STACK_MAIN 1200
 	COMPILE_FLAGS
-		-Os
 	SRCS
 		frsky_data.c
 		sPort_data.c
@@ -43,4 +42,4 @@ px4_add_module(
 	DEPENDS
 		platforms__common
 	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix : 
+# vim: set noet ft=cmake fenc=utf-8 ff=unix :

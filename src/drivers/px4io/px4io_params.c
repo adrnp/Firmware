@@ -39,7 +39,7 @@
  * @author Lorenz Meier <lorenz@px4.io>
  */
 
-#include <nuttx/config.h>
+#include <px4_config.h>
 #include <systemlib/param/param.h>
 
 /**
@@ -48,9 +48,7 @@
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV1, 0);
@@ -61,9 +59,7 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV1, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV2, 0);
@@ -74,9 +70,7 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV2, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV3, 0);
@@ -87,9 +81,7 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV3, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV4, 0);
@@ -100,9 +92,7 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV4, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV5, 0);
@@ -113,9 +103,7 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV5, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV6, 0);
@@ -126,9 +114,7 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV6, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV7, 0);
@@ -139,20 +125,113 @@ PARAM_DEFINE_INT32(PWM_MAIN_REV7, 0);
  * Set to 1 to invert the channel, 0 for default direction.
  *
  * @reboot_required true
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_MAIN_REV8, 0);
 
 /**
- * Enable S.BUS out
+ * Trim value for main output channel 1
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM1, 0);
+
+/**
+ * Trim value for main output channel 2
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM2, 0);
+
+/**
+ * Trim value for main output channel 3
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM3, 0);
+
+/**
+ * Trim value for main output channel 4
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM4, 0);
+
+/**
+ * Trim value for main output channel 5
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM5, 0);
+
+/**
+ * Trim value for main output channel 6
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM6, 0);
+
+/**
+ * Trim value for main output channel 7
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM7, 0);
+
+/**
+ * Trim value for main output channel 8
+ *
+ * Set to normalized offset
+ *
+ * @min -0.2
+ * @max 0.2
+ * @decimal 2
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(PWM_MAIN_TRIM8, 0);
+
+/**
+ * S.BUS out
  *
  * Set to 1 to enable S.BUS version 1 output instead of RSSI.
  *
- * @min 0
- * @max 1
+ * @boolean
  * @group PWM Outputs
  */
 PARAM_DEFINE_INT32(PWM_SBUS_MODE, 0);

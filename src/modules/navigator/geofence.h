@@ -53,10 +53,16 @@
 
 #define GEOFENCE_FILENAME PX4_ROOTFSDIR"/fs/microsd/etc/geofence.txt"
 
+class Navigator;
+
 class Geofence : public control::SuperBlock
 {
 public:
-	Geofence();
+	Geofence(Navigator *navigator);
+
+	Geofence(const Geofence &) = delete;
+	Geofence &operator=(const Geofence &) = delete;
+
 	~Geofence();
 
 	/* Altitude mode, corresponding to the param GF_ALTMODE */
@@ -82,6 +88,8 @@ public:
 		    const struct vehicle_gps_position_s &gps_position, float baro_altitude_amsl,
 		    const struct home_position_s home_pos, bool home_position_set);
 
+	bool inside(const struct mission_item_s &mission_item);
+
 	bool inside_polygon(double lat, double lon, float altitude);
 
 	int clearDm();
@@ -105,9 +113,9 @@ public:
 
 	int getGeofenceAction() { return _param_action.get(); }
 
-	void setMavlinkFd(int value) { _mavlinkFd = value; }
-
 private:
+	Navigator	*_navigator;
+
 	orb_advert_t	_fence_pub;			/**< publish fence topic */
 
 	home_position_s _home_pos;
@@ -126,12 +134,10 @@ private:
 	control::BlockParamInt _param_altitude_mode;
 	control::BlockParamInt _param_source;
 	control::BlockParamInt _param_counter_threshold;
-	control::BlockParamInt _param_max_hor_distance;
-	control::BlockParamInt _param_max_ver_distance;
+	control::BlockParamFloat _param_max_hor_distance;
+	control::BlockParamFloat _param_max_ver_distance;
 
-	unsigned _outside_counter;
-
-	int _mavlinkFd;
+	int _outside_counter;
 
 	bool inside(double lat, double lon, float altitude);
 	bool inside(const struct vehicle_global_position_s &global_position);

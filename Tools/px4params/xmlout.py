@@ -22,6 +22,10 @@ class XMLOutput():
         xml_parameters = ET.Element("parameters")
         xml_version = ET.SubElement(xml_parameters, "version")
         xml_version.text = "3"
+        xml_version = ET.SubElement(xml_parameters, "parameter_version_major")
+        xml_version.text = "1"
+        xml_version = ET.SubElement(xml_parameters, "parameter_version_minor")
+        xml_version.text = "14"
         importtree = ET.parse(inject_xml_file_name)
         injectgroups = importtree.getroot().findall("group")
         for igroup in injectgroups:
@@ -59,6 +63,14 @@ class XMLOutput():
                         xml_value = ET.SubElement(xml_values, "value")
                         xml_value.attrib["code"] = code;
                         xml_value.text = param.GetEnumValue(code)
+
+                if len(param.GetBitmaskList()) > 0:
+                    xml_values = ET.SubElement(xml_param, "bitmask")
+                    for index in param.GetBitmaskList():
+                        xml_value = ET.SubElement(xml_values, "bit")
+                        xml_value.attrib["index"] = index;
+                        xml_value.text = param.GetBitmaskBit(index)
+
         indent(xml_parameters)
         self.xml_document = ET.ElementTree(xml_parameters)
 

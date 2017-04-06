@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,38 +31,38 @@
  *
  ****************************************************************************/
 
-/**
+/*
  * @file FixedwingLandDetector.cpp
- * Land detection algorithm for fixedwings
  *
  * @author Johan Jansen <jnsn.johan@gmail.com>
  * @author Lorenz Meier <lorenz@px4.io>
+ * @author Julian Oes <julian@oes.ch>
  */
-
-#include "FixedwingLandDetector.h"
 
 #include <px4_config.h>
 #include <px4_defines.h>
 #include <cmath>
 #include <drivers/drv_hrt.h>
 
+#include "FixedwingLandDetector.h"
+
+
+namespace land_detector
+{
+
 FixedwingLandDetector::FixedwingLandDetector() : LandDetector(),
 	_paramHandle(),
 	_params(),
 	_controlStateSub(-1),
-	_vehicleStatusSub(-1),
 	_armingSub(-1),
 	_airspeedSub(-1),
 	_controlState{},
-	_vehicleStatus{},
 	_arming{},
 	_airspeed{},
-	_parameterSub(-1),
 	_velocity_xy_filtered(0.0f),
 	_velocity_z_filtered(0.0f),
 	_airspeed_filtered(0.0f),
-	_accel_horz_lp(0.0f),
-	_landDetectTrigger(0)
+	_accel_horz_lp(0.0f)
 {
 	_paramHandle.maxVelocity = param_find("LNDFW_VEL_XY_MAX");
 	_paramHandle.maxClimbRate = param_find("LNDFW_VEL_Z_MAX");
@@ -70,36 +70,55 @@ FixedwingLandDetector::FixedwingLandDetector() : LandDetector(),
 	_paramHandle.maxIntVelocity = param_find("LNDFW_VELI_MAX");
 }
 
-void FixedwingLandDetector::initialize()
+void FixedwingLandDetector::_initialize_topics()
 {
-	// Subscribe to local position and airspeed data
 	_controlStateSub = orb_subscribe(ORB_ID(control_state));
-	_vehicleStatusSub = orb_subscribe(ORB_ID(vehicle_status));
 	_armingSub = orb_subscribe(ORB_ID(actuator_armed));
 	_airspeedSub = orb_subscribe(ORB_ID(airspeed));
-
-	updateParameterCache(true);
 }
 
-void FixedwingLandDetector::updateSubscriptions()
+void FixedwingLandDetector::_update_topics()
 {
-	orb_update(ORB_ID(control_state), _controlStateSub, &_controlState);
-	orb_update(ORB_ID(vehicle_status), _vehicleStatusSub, &_vehicleStatus);
-	orb_update(ORB_ID(actuator_armed), _armingSub, &_arming);
-	orb_update(ORB_ID(airspeed), _airspeedSub, &_airspeed);
+	_orb_update(ORB_ID(control_state), _controlStateSub, &_controlState);
+	_orb_update(ORB_ID(actuator_armed), _armingSub, &_arming);
+	_orb_update(ORB_ID(airspeed), _airspeedSub, &_airspeed);
 }
 
-bool FixedwingLandDetector::update()
+void FixedwingLandDetector::_update_params()
 {
-	// First poll for new data from our subscriptions
-	updateSubscriptions();
+	param_get(_paramHandle.maxVelocity, &_params.maxVelocity);
+	param_get(_paramHandle.maxClimbRate, &_params.maxClimbRate);
+	param_get(_paramHandle.maxAirSpeed, &_params.maxAirSpeed);
+	param_get(_paramHandle.maxIntVelocity, &_params.maxIntVelocity);
+}
 
+float FixedwingLandDetector::_get_max_altitude()
+{
+	// TODO
+	// This means no altitude limit as the limit
+	// is always current position plus 1000 meters
+	return -_controlState.z_pos + 1000;
+}
+
+bool FixedwingLandDetector::_get_freefall_state()
+{
+	// TODO
+	return false;
+}
+bool FixedwingLandDetector::_get_ground_contact_state()
+{
+
+	// TODO
+	return false;
+}
+
+bool FixedwingLandDetector::_get_landed_state()
+{
 	// only trigger flight conditions if we are armed
 	if (!_arming.armed) {
 		return true;
 	}
 
-	const uint64_t now = hrt_absolute_time();
 	bool landDetected = false;
 
 	if (hrt_elapsed_time(&_controlState.timestamp) < 500 * 1000) {
@@ -122,42 +141,24 @@ bool FixedwingLandDetector::update()
 		// gives a mostly correct response for short impulses
 		_accel_horz_lp = _accel_horz_lp * 0.8f + _controlState.horz_acc_mag * 0.18f;
 
-	}
+		// crude land detector for fixedwing
+		if (_velocity_xy_filtered < _params.maxVelocity
+		    && _velocity_z_filtered < _params.maxClimbRate
+		    && _airspeed_filtered < _params.maxAirSpeed
+		    && _accel_horz_lp < _params.maxIntVelocity) {
 
-	// crude land detector for fixedwing
-	if (_velocity_xy_filtered < _params.maxVelocity
-	    && _velocity_z_filtered < _params.maxClimbRate
-	    && _airspeed_filtered < _params.maxAirSpeed
-	    && _accel_horz_lp < _params.maxIntVelocity) {
-
-		// these conditions need to be stable for a period of time before we trust them
-		if (now > _landDetectTrigger) {
 			landDetected = true;
+
+		} else {
+			landDetected = false;
 		}
 
 	} else {
-		// reset land detect trigger
-		_landDetectTrigger = now + LAND_DETECTOR_TRIGGER_TIME;
+		// Control state topic has timed out and we need to assume we're landed.
+		landDetected = true;
 	}
 
 	return landDetected;
 }
 
-void FixedwingLandDetector::updateParameterCache(const bool force)
-{
-	bool updated;
-	parameter_update_s paramUpdate;
-
-	orb_check(_parameterSub, &updated);
-
-	if (updated) {
-		orb_copy(ORB_ID(parameter_update), _parameterSub, &paramUpdate);
-	}
-
-	if (updated || force) {
-		param_get(_paramHandle.maxVelocity, &_params.maxVelocity);
-		param_get(_paramHandle.maxClimbRate, &_params.maxClimbRate);
-		param_get(_paramHandle.maxAirSpeed, &_params.maxAirSpeed);
-		param_get(_paramHandle.maxIntVelocity, &_params.maxIntVelocity);
-	}
-}
+} // namespace land_detector

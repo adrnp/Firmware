@@ -44,9 +44,11 @@
  *
  * Reduce if the system is too twitchy, increase if the response is too slow and sluggish.
  *
+ * @unit s
  * @min 0.15
  * @max 0.25
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ROLL_TC, 0.2f);
@@ -56,9 +58,11 @@ PARAM_DEFINE_FLOAT(MC_ROLL_TC, 0.2f);
  *
  * Reduce if the system is too twitchy, increase if the response is too slow and sluggish.
  *
+ * @unit s
  * @min 0.15
  * @max 0.25
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_PITCH_TC, 0.2f);
@@ -68,8 +72,11 @@ PARAM_DEFINE_FLOAT(MC_PITCH_TC, 0.2f);
  *
  * Roll proportional gain, i.e. desired angular speed in rad/s for error 1 rad.
  *
+ * @unit 1/s
  * @min 0.0
+ * @max 8
  * @decimal 2
+ * @increment 0.1
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ROLL_P, 6.5f);
@@ -80,7 +87,9 @@ PARAM_DEFINE_FLOAT(MC_ROLL_P, 6.5f);
  * Roll rate proportional gain, i.e. control output for angular speed error 1 rad/s.
  *
  * @min 0.0
+ * @max 0.5
  * @decimal 3
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ROLLRATE_P, 0.15f);
@@ -91,9 +100,23 @@ PARAM_DEFINE_FLOAT(MC_ROLLRATE_P, 0.15f);
  * Roll rate integral gain. Can be set to compensate static thrust difference or gravity center offset.
  *
  * @min 0.0
+ * @decimal 3
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ROLLRATE_I, 0.05f);
+
+/**
+ * Roll rate integrator limit
+ *
+ * Roll rate integrator limit. Can be set to increase the amount of integrator available to counteract disturbances or reduced to improve settling time after large roll moment trim changes.
+ *
+ * @min 0.0
+ * @decimal 2
+ * @increment 0.01
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_RR_INT_LIM, 0.30f);
 
 /**
  * Roll rate D gain
@@ -101,7 +124,9 @@ PARAM_DEFINE_FLOAT(MC_ROLLRATE_I, 0.05f);
  * Roll rate differential gain. Small values help reduce fast oscillations. If value is too big oscillations will appear again.
  *
  * @min 0.0
+ * @max 0.01
  * @decimal 4
+ * @increment 0.0005
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ROLLRATE_D, 0.003f);
@@ -124,7 +149,9 @@ PARAM_DEFINE_FLOAT(MC_ROLLRATE_FF, 0.0f);
  *
  * @unit 1/s
  * @min 0.0
+ * @max 10
  * @decimal 2
+ * @increment 0.1
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_PITCH_P, 6.5f);
@@ -135,7 +162,9 @@ PARAM_DEFINE_FLOAT(MC_PITCH_P, 6.5f);
  * Pitch rate proportional gain, i.e. control output for angular speed error 1 rad/s.
  *
  * @min 0.0
+ * @max 0.6
  * @decimal 3
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_PITCHRATE_P, 0.15f);
@@ -146,10 +175,23 @@ PARAM_DEFINE_FLOAT(MC_PITCHRATE_P, 0.15f);
  * Pitch rate integral gain. Can be set to compensate static thrust difference or gravity center offset.
  *
  * @min 0.0
- * @decimal 2
+ * @decimal 3
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_PITCHRATE_I, 0.05f);
+
+/**
+ * Pitch rate integrator limit
+ *
+ * Pitch rate integrator limit. Can be set to increase the amount of integrator available to counteract disturbances or reduced to improve settling time after large pitch moment trim changes.
+ *
+ * @min 0.0
+ * @decimal 2
+ * @increment 0.01
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_PR_INT_LIM, 0.30f);
 
 /**
  * Pitch rate D gain
@@ -158,6 +200,7 @@ PARAM_DEFINE_FLOAT(MC_PITCHRATE_I, 0.05f);
  *
  * @min 0.0
  * @decimal 4
+ * @increment 0.0005
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_PITCHRATE_D, 0.003f);
@@ -180,7 +223,9 @@ PARAM_DEFINE_FLOAT(MC_PITCHRATE_FF, 0.0f);
  *
  * @unit 1/s
  * @min 0.0
+ * @max 5
  * @decimal 2
+ * @increment 0.1
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAW_P, 2.8f);
@@ -191,7 +236,9 @@ PARAM_DEFINE_FLOAT(MC_YAW_P, 2.8f);
  * Yaw rate proportional gain, i.e. control output for angular speed error 1 rad/s.
  *
  * @min 0.0
+ * @max 0.6
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAWRATE_P, 0.2f);
@@ -203,9 +250,22 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_P, 0.2f);
  *
  * @min 0.0
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAWRATE_I, 0.1f);
+
+/**
+ * Yaw rate integrator limit
+ *
+ * Yaw rate integrator limit. Can be set to increase the amount of integrator available to counteract disturbances or reduced to improve settling time after large yaw moment trim changes.
+ *
+ * @min 0.0
+ * @decimal 2
+ * @increment 0.01
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_YR_INT_LIM, 0.30f);
 
 /**
  * Yaw rate D gain
@@ -214,6 +274,7 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_I, 0.1f);
  *
  * @min 0.0
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAWRATE_D, 0.0f);
@@ -225,6 +286,7 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_D, 0.0f);
  *
  * @min 0.0
  * @decimal 4
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAWRATE_FF, 0.0f);
@@ -237,6 +299,7 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_FF, 0.0f);
  * @min 0.0
  * @max 1.0
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAW_FF, 0.5f);
@@ -250,6 +313,7 @@ PARAM_DEFINE_FLOAT(MC_YAW_FF, 0.5f);
  * @min 0.0
  * @max 360.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ROLLRATE_MAX, 220.0f);
@@ -263,6 +327,7 @@ PARAM_DEFINE_FLOAT(MC_ROLLRATE_MAX, 220.0f);
  * @min 0.0
  * @max 360.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_PITCHRATE_MAX, 220.0f);
@@ -276,9 +341,10 @@ PARAM_DEFINE_FLOAT(MC_PITCHRATE_MAX, 220.0f);
  * @min 0.0
  * @max 360.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
-PARAM_DEFINE_FLOAT(MC_YAWRATE_MAX, 120.0f);
+PARAM_DEFINE_FLOAT(MC_YAWRATE_MAX, 200.0f);
 
 /**
  * Max yaw rate in auto mode
@@ -292,6 +358,7 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_MAX, 120.0f);
  * @min 0.0
  * @max 120.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_YAWRAUTO_MAX, 45.0f);
@@ -301,8 +368,9 @@ PARAM_DEFINE_FLOAT(MC_YAWRAUTO_MAX, 45.0f);
  *
  * @unit deg/s
  * @min 0.0
- * @max 360.0
+ * @max 1000.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ACRO_R_MAX, 360.0f);
@@ -312,8 +380,9 @@ PARAM_DEFINE_FLOAT(MC_ACRO_R_MAX, 360.0f);
  *
  * @unit deg/s
  * @min 0.0
- * @max 360.0
+ * @max 1000.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ACRO_P_MAX, 360.0f);
@@ -323,7 +392,9 @@ PARAM_DEFINE_FLOAT(MC_ACRO_P_MAX, 360.0f);
  *
  * @unit deg/s
  * @min 0.0
+ * @max 1000.0
  * @decimal 1
+ * @increment 5
  * @group Multicopter Attitude Control
  */
 PARAM_DEFINE_FLOAT(MC_ACRO_Y_MAX, 360.0f);
@@ -334,10 +405,114 @@ PARAM_DEFINE_FLOAT(MC_ACRO_Y_MAX, 360.0f);
  * Manual input needed in order to override attitude control rate setpoints
  * and instead pass manual stick inputs as rate setpoints
  *
- * @unit
  * @min 0.0
  * @max 1.0
  * @decimal 2
+ * @increment 0.01
  * @group Multicopter Attitude Control
  */
-PARAM_DEFINE_FLOAT(MC_RATT_TH, 1.0f);
+PARAM_DEFINE_FLOAT(MC_RATT_TH, 0.8f);
+
+/**
+ * Battery power level scaler
+ *
+ * This compensates for voltage drop of the battery over time by attempting to
+ * normalize performance across the operating range of the battery. The copter
+ * should constantly behave as if it was fully charged with reduced max acceleration
+ * at lower battery percentages. i.e. if hover is at 0.5 throttle at 100% battery,
+ * it will still be 0.5 at 60% battery.
+ *
+ * @boolean
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_INT32(MC_BAT_SCALE_EN, 0);
+
+/**
+ * TPA P Breakpoint
+ *
+ * Throttle PID Attenuation (TPA)
+ * Magnitude of throttle setpoint at which to begin attenuating roll/pitch P gain
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.1
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_TPA_BREAK_P, 1.0f);
+
+/**
+ * TPA I Breakpoint
+ *
+ * Throttle PID Attenuation (TPA)
+ * Magnitude of throttle setpoint at which to begin attenuating roll/pitch I gain
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.1
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_TPA_BREAK_I, 1.0f);
+
+/**
+ * TPA D Breakpoint
+ *
+ * Throttle PID Attenuation (TPA)
+ * Magnitude of throttle setpoint at which to begin attenuating roll/pitch D gain
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.1
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_TPA_BREAK_D, 1.0f);
+
+/**
+ * TPA Rate P
+ *
+ * Throttle PID Attenuation (TPA)
+ * Rate at which to attenuate roll/pitch P gain
+ * Attenuation factor is 1.0 when throttle magnitude is below the setpoint
+ * Above the setpoint, the attenuation factor is (1 - rate * (throttle - breakpoint) / (1.0 - breakpoint))
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_TPA_RATE_P, 0.0f);
+
+/**
+ * TPA Rate I
+ *
+ * Throttle PID Attenuation (TPA)
+ * Rate at which to attenuate roll/pitch I gain
+ * Attenuation factor is 1.0 when throttle magnitude is below the setpoint
+ * Above the setpoint, the attenuation factor is (1 - rate * (throttle - breakpoint) / (1.0 - breakpoint))
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_TPA_RATE_I, 0.0f);
+
+/**
+ * TPA Rate D
+ *
+ * Throttle PID Attenuation (TPA)
+ * Rate at which to attenuate roll/pitch D gain
+ * Attenuation factor is 1.0 when throttle magnitude is below the setpoint
+ * Above the setpoint, the attenuation factor is (1 - rate * (throttle - breakpoint) / (1.0 - breakpoint))
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_TPA_RATE_D, 0.0f);

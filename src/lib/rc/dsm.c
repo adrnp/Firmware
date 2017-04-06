@@ -46,18 +46,19 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <string.h>
 
 #include "dsm.h"
 #include <drivers/drv_hrt.h>
 
-#if defined (__PX4_LINUX) || defined (__PX4_DARWIN)
+#if defined (__PX4_LINUX) || defined (__PX4_DARWIN) || defined(__PX4_QURT)
 #define dsm_udelay(arg) usleep(arg)
 #else
 #include <nuttx/arch.h>
 #define dsm_udelay(arg)    up_udelay(arg)
 #endif
 
-//#define DSM_DEBUG
+// #define DSM_DEBUG
 
 static enum DSM_DECODE_STATE {
 	DSM_DECODE_STATE_DESYNC = 0,
@@ -69,6 +70,7 @@ static hrt_abstime dsm_last_rx_time;            /**< Timestamp when we last rece
 static hrt_abstime dsm_last_frame_time;		/**< Timestamp for start of last valid dsm frame */
 static uint8_t dsm_frame[DSM_BUFFER_SIZE];	/**< DSM dsm frame receive buffer */
 static uint8_t dsm_buf[DSM_FRAME_SIZE * 2];
+static uint16_t dsm_chan_buf[DSM_MAX_CHANNEL_COUNT];
 static unsigned dsm_partial_frame_count;	/**< Count of bytes received for current dsm frame */
 static unsigned dsm_channel_shift = 0;			/**< Channel resolution, 0=unknown, 1=10 bit, 2=11 bit */
 static unsigned dsm_frame_drops = 0;			/**< Count of incomplete DSM frames */
@@ -231,24 +233,24 @@ dsm_guess_format(bool reset)
 }
 
 int
-dsm_config(int dsm_fd)
+dsm_config(int fd)
 {
-#ifdef GPIO_SPEKTRUM_PWR_EN
+#ifdef SPEKTRUM_POWER
 	// enable power on DSM connector
-	POWER_SPEKTRUM(true);
+	SPEKTRUM_POWER(true);
 #endif
 
 	int ret = -1;
 
-	if (dsm_fd >= 0) {
+	if (fd >= 0) {
 
 		struct termios t;
 
 		/* 115200bps, no parity, one stop bit */
-		tcgetattr(dsm_fd, &t);
+		tcgetattr(fd, &t);
 		cfsetspeed(&t, 115200);
 		t.c_cflag &= ~(CSTOPB | PARENB);
-		tcsetattr(dsm_fd, TCSANOW, &t);
+		tcsetattr(fd, TCSANOW, &t);
 
 		/* initialise the decoder */
 		dsm_partial_frame_count = 0;
@@ -261,6 +263,19 @@ dsm_config(int dsm_fd)
 	}
 
 	return ret;
+}
+
+void
+dsm_proto_init()
+{
+	dsm_channel_shift = 0;
+	dsm_frame_drops = 0;
+	dsm_chan_count = 0;
+	dsm_decode_state = DSM_DECODE_STATE_DESYNC;
+
+	for (unsigned i = 0; i < DSM_MAX_CHANNEL_COUNT; i++) {
+		dsm_chan_buf[i] = 0;
+	}
 }
 
 /**
@@ -278,10 +293,7 @@ dsm_init(const char *device)
 		dsm_fd = open(device, O_RDONLY | O_NONBLOCK);
 	}
 
-	dsm_channel_shift = 0;
-	dsm_frame_drops = 0;
-	dsm_chan_count = 0;
-	dsm_decode_state = DSM_DECODE_STATE_DESYNC;
+	dsm_proto_init();
 
 	int ret = dsm_config(dsm_fd);
 
@@ -293,7 +305,17 @@ dsm_init(const char *device)
 	}
 }
 
-#ifdef GPIO_SPEKTRUM_PWR_EN
+void
+dsm_deinit()
+{
+	if (dsm_fd >= 0) {
+		close(dsm_fd);
+	}
+
+	dsm_fd = -1;
+}
+
+#if defined(SPEKTRUM_POWER)
 /**
  * Handle DSM satellite receiver bind mode handler
  *
@@ -312,20 +334,20 @@ dsm_bind(uint16_t cmd, int pulses)
 	case DSM_CMD_BIND_POWER_DOWN:
 
 		/*power down DSM satellite*/
-		POWER_SPEKTRUM(0);
+		SPEKTRUM_POWER(false);
 		break;
 
 	case DSM_CMD_BIND_POWER_UP:
 
 		/*power up DSM satellite*/
-		POWER_SPEKTRUM(1);
+		SPEKTRUM_POWER(true);
 		dsm_guess_format(true);
 		break;
 
 	case DSM_CMD_BIND_SET_RX_OUT:
 
 		/*Set UART RX pin to active output mode*/
-		SPEKTRUM_RX_AS_GPIO();
+		SPEKTRUM_RX_AS_GPIO_OUTPUT();
 		break;
 
 	case DSM_CMD_BIND_SEND_PULSES:
@@ -333,9 +355,9 @@ dsm_bind(uint16_t cmd, int pulses)
 		/*Pulse RX pin a number of times*/
 		for (int i = 0; i < pulses; i++) {
 			dsm_udelay(120);
-			SPEKTRUM_RX_HIGH(false);
+			SPEKTRUM_OUT(false);
 			dsm_udelay(120);
-			SPEKTRUM_RX_HIGH(true);
+			SPEKTRUM_OUT(true);
 		}
 
 		break;
@@ -494,9 +516,9 @@ dsm_decode(hrt_abstime frame_time, uint16_t *values, uint16_t *num_values, bool 
 		/* if the value is unrealistic, fail the parsing entirely */
 		if (values[i] < 600 || values[i] > 2400) {
 #ifdef DSM_DEBUG
-			printf("DSM: VALUE RANGE FAIL\n");
+			printf("DSM: VALUE RANGE FAIL: %d: %d\n", (int)i, (int)values[i]);
 #endif
-			dsm_chan_count = 0;
+			*num_values = 0;
 			return false;
 		}
 	}
@@ -526,7 +548,7 @@ dsm_decode(hrt_abstime frame_time, uint16_t *values, uint16_t *num_values, bool 
  * @return true=decoded raw channel values updated, false=no update
  */
 bool
-dsm_input(int dsm_fd, uint16_t *values, uint16_t *num_values, bool *dsm_11_bit, uint8_t *n_bytes, uint8_t **bytes,
+dsm_input(int fd, uint16_t *values, uint16_t *num_values, bool *dsm_11_bit, uint8_t *n_bytes, uint8_t **bytes,
 	  unsigned max_values)
 {
 	int		ret = 1;
@@ -554,7 +576,7 @@ dsm_input(int dsm_fd, uint16_t *values, uint16_t *num_values, bool *dsm_11_bit, 
 	 * a complete frame.
 	 */
 
-	ret = read(dsm_fd, &dsm_buf[0], sizeof(dsm_buf) / sizeof(dsm_buf[0]));
+	ret = read(fd, &dsm_buf[0], sizeof(dsm_buf) / sizeof(dsm_buf[0]));
 
 	/* if the read failed for any reason, just give up here */
 	if (ret < 1) {
@@ -572,7 +594,7 @@ dsm_input(int dsm_fd, uint16_t *values, uint16_t *num_values, bool *dsm_11_bit, 
 }
 
 bool
-dsm_parse(uint64_t now, uint8_t *frame, unsigned len, uint16_t *values,
+dsm_parse(const uint64_t now, const uint8_t *frame, const unsigned len, uint16_t *values,
 	  uint16_t *num_values, bool *dsm_11_bit, unsigned *frame_drops, uint16_t max_channels)
 {
 
@@ -580,6 +602,11 @@ dsm_parse(uint64_t now, uint8_t *frame, unsigned len, uint16_t *values,
 	 * once everything that was decodable has been decoded.
 	 */
 	bool decode_ret = false;
+
+	/* ensure there can be no overflows */
+	if (max_channels > sizeof(dsm_chan_buf) / sizeof(dsm_chan_buf[0])) {
+		max_channels = sizeof(dsm_chan_buf) / sizeof(dsm_chan_buf[0]);
+	}
 
 	/* keep decoding until we have consumed the buffer */
 	for (unsigned d = 0; d < len; d++) {
@@ -636,7 +663,7 @@ dsm_parse(uint64_t now, uint8_t *frame, unsigned len, uint16_t *values,
 				 * Great, it looks like we might have a frame.  Go ahead and
 				 * decode it.
 				 */
-				decode_ret = dsm_decode(now, values, &dsm_chan_count, dsm_11_bit, max_channels);
+				decode_ret = dsm_decode(now, &dsm_chan_buf[0], &dsm_chan_count, dsm_11_bit, max_channels);
 
 				/* we consumed the partial frame, reset */
 				dsm_partial_frame_count = 0;
@@ -655,8 +682,6 @@ dsm_parse(uint64_t now, uint8_t *frame, unsigned len, uint16_t *values,
 #endif
 			decode_ret = false;
 		}
-
-
 	}
 
 	if (frame_drops) {
@@ -665,6 +690,15 @@ dsm_parse(uint64_t now, uint8_t *frame, unsigned len, uint16_t *values,
 
 	if (decode_ret) {
 		*num_values = dsm_chan_count;
+
+		memcpy(&values[0], &dsm_chan_buf[0], dsm_chan_count * sizeof(dsm_chan_buf[0]));
+#ifdef DSM_DEBUG
+
+		for (unsigned i = 0; i < dsm_chan_count; i++) {
+			printf("dsm_decode: %u: %u\n", i, values[i]);
+		}
+
+#endif
 	}
 
 	dsm_last_rx_time = now;

@@ -278,7 +278,7 @@ private:
 	// internal variables
 	bool			_enabled;	///< true if we have successfully connected to battery
 	work_s			_work;		///< work queue for scheduling reads
-	RingBuffer		*_reports;	///< buffer of recorded voltages, currents
+	ringbuffer::RingBuffer	*_reports;	///< buffer of recorded voltages, currents
 	struct battery_status_s _last_report;	///< last published report, used for test()
 	orb_advert_t		_batt_topic;	///< uORB battery topic
 	orb_id_t		_batt_orb_id;	///< uORB battery topic ID
@@ -312,7 +312,7 @@ BATT_SMBUS::BATT_SMBUS(int bus, uint16_t batt_smbus_addr) :
 	_enabled(false),
 	_work{},
 	_reports(nullptr),
-	_batt_topic(-1),
+	_batt_topic(nullptr),
 	_batt_orb_id(nullptr),
 	_start_time(0),
 	_batt_capacity(0),
@@ -339,15 +339,15 @@ BATT_SMBUS::~BATT_SMBUS()
 	}
 
 	if (_manufacturer_name != nullptr) {
-		delete _manufacturer_name;
+		delete[] _manufacturer_name;
 	}
 
 	if (_device_name != nullptr) {
-		delete _device_name;
+		delete[] _device_name;
 	}
 
 	if (_device_chemistry != nullptr) {
-		delete _device_chemistry;
+		delete[] _device_chemistry;
 	}
 }
 
@@ -365,7 +365,7 @@ BATT_SMBUS::init()
 
 	} else {
 		// allocate basic report buffers
-		_reports = new RingBuffer(2, sizeof(struct battery_status_s));
+		_reports = new ringbuffer::RingBuffer(2, sizeof(struct battery_status_s));
 
 		if (_reports == nullptr) {
 			ret = ENOTTY;
@@ -603,7 +603,7 @@ BATT_SMBUS::cycle()
 		uint8_t len = manufacturer_name((uint8_t *)man_name, sizeof(man_name));
 
 		if (len > 0) {
-			_manufacturer_name = new char[len];
+			_manufacturer_name = new char[len + 1];
 			strcpy(_manufacturer_name, man_name);
 			perform_solo_battry_check = true;
 		}
@@ -614,7 +614,7 @@ BATT_SMBUS::cycle()
 		uint8_t len = device_name((uint8_t *)dev_name, sizeof(dev_name));
 
 		if (len > 0) {
-			_device_name = new char[len];
+			_device_name = new char[len + 1];
 			strcpy(_device_name, dev_name);
 			perform_solo_battry_check = true;
 		}
@@ -625,7 +625,7 @@ BATT_SMBUS::cycle()
 		uint8_t len = device_chemistry((uint8_t *)dev_chem, sizeof(dev_chem));
 
 		if (len > 0) {
-			_device_chemistry = new char[len];
+			_device_chemistry = new char[len + 1];
 			strcpy(_device_chemistry, dev_chem);
 			perform_solo_battry_check = true;
 		}
@@ -706,13 +706,13 @@ BATT_SMBUS::cycle()
 
 
 		// publish to orb
-		if (_batt_topic != -1) {
+		if (_batt_topic != nullptr) {
 			orb_publish(_batt_orb_id, _batt_topic, &new_report);
 
 		} else {
 			_batt_topic = orb_advertise(_batt_orb_id, &new_report);
 
-			if (_batt_topic < 0) {
+			if (_batt_topic == nullptr) {
 				errx(1, "ADVERT FAIL");
 			}
 		}

@@ -38,12 +38,14 @@
  */
 
 #include <px4_time.h>
+#include <px4_posix.h>
+#include <px4_defines.h>
 #include <px4_workqueue.h>
+#include <px4_tasks.h>
 #include <drivers/drv_hrt.h>
 #include <semaphore.h>
 #include <time.h>
 #include <string.h>
-#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <errno.h>
 #include "hrt_work.h"
@@ -64,9 +66,14 @@ static void		hrt_call_reschedule(void);
 
 static px4_sem_t 	_hrt_lock;
 static struct work_s	_hrt_work;
+#ifndef __PX4_QURT
 static hrt_abstime px4_timestart = 0;
+#else
+static int32_t dsp_offset = 0;
+#endif
 static hrt_abstime _start_delay_time = 0;
 static hrt_abstime _delay_interval = 0;
+static hrt_abstime max_time = 0;
 pthread_mutex_t _hrt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void
@@ -87,14 +94,8 @@ static void hrt_unlock(void)
 	px4_sem_post(&_hrt_lock);
 }
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__PX4_QURT)
-#include <time.h>
+#if defined(__PX4_APPLE_LEGACY)
 #include <sys/time.h>
-#define CLOCK_REALTIME 0
-
-#ifndef CLOCK_MONOTONIC
-#define CLOCK_MONOTONIC 1
-#endif
 
 int px4_clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
@@ -117,6 +118,33 @@ int px4_clock_settime(clockid_t clk_id, struct timespec *tp)
 	return 0;
 }
 
+#elif defined(__PX4_QURT)
+
+#include "dspal_time.h"
+
+int px4_clock_settime(clockid_t clk_id, struct timespec *tp)
+{
+	/* do nothing right now */
+	return 0;
+}
+
+int px4_clock_gettime(clockid_t clk_id, struct timespec *tp)
+{
+	return clock_gettime(clk_id, tp);
+}
+
+#endif
+
+#ifndef __PX4_QURT
+/*
+ * Get system time in us
+ */
+uint64_t hrt_system_time(void)
+{
+	struct timespec ts;
+	px4_clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts_to_abstime(&ts);
+}
 #endif
 
 /*
@@ -126,6 +154,19 @@ hrt_abstime _hrt_absolute_time_internal(void)
 {
 	struct timespec ts;
 
+#if defined(__PX4_QURT)
+	// Don't use the timestart on the DSP on Snapdragon because we manually
+	// set the px4_timestart using the hrt_set_absolute_time_offset().
+	px4_clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts_to_abstime(&ts) + dsp_offset;
+
+#elif (defined(__PX4_POSIX_EAGLE) || defined(__PX4_POSIX_EXCELSIOR))
+	// Don't do any offseting on the Linux side on the Snapdragon.
+	px4_clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts_to_abstime(&ts);
+
+#else
+
 	if (!px4_timestart) {
 		px4_clock_gettime(CLOCK_MONOTONIC, &ts);
 		px4_timestart = ts_to_abstime(&ts);
@@ -133,7 +174,16 @@ hrt_abstime _hrt_absolute_time_internal(void)
 
 	px4_clock_gettime(CLOCK_MONOTONIC, &ts);
 	return ts_to_abstime(&ts) - px4_timestart;
+#endif
 }
+
+#ifdef __PX4_QURT
+int hrt_set_absolute_time_offset(int32_t time_diff_us)
+{
+	dsp_offset = time_diff_us;
+	return 0;
+}
+#endif
 
 /*
  * Get absolute time.
@@ -141,7 +191,6 @@ hrt_abstime _hrt_absolute_time_internal(void)
 hrt_abstime hrt_absolute_time(void)
 {
 	pthread_mutex_lock(&_hrt_mutex);
-	static hrt_abstime max_time = 0;
 
 	hrt_abstime ret;
 
@@ -167,7 +216,10 @@ hrt_abstime hrt_absolute_time(void)
 
 __EXPORT hrt_abstime hrt_reset(void)
 {
+#ifndef __PX4_QURT
 	px4_timestart = 0;
+#endif
+	max_time = 0;
 	return _hrt_absolute_time_internal();
 }
 
@@ -283,12 +335,12 @@ void	hrt_start_delay()
 void	hrt_stop_delay()
 {
 	pthread_mutex_lock(&_hrt_mutex);
-	int64_t delta = _hrt_absolute_time_internal() - _start_delay_time;
+	uint64_t delta = _hrt_absolute_time_internal() - _start_delay_time;
 	_delay_interval += delta;
 	_start_delay_time = 0;
 
-	if (delta > 10000) {
-		PX4_INFO("simulator is slow. Delay added: %llu us", delta);
+	if (delta > 100000) {
+		PX4_INFO("Computer load temporarily too high for real-time simulation. (slowdown delay: %" PRIu64 " us)", delta);
 	}
 
 	pthread_mutex_unlock(&_hrt_mutex);

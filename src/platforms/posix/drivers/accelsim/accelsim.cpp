@@ -69,13 +69,13 @@
 
 #define ADDR_WHO_AM_I			0x0F
 
-#define ACCELSIM_ACCEL_DEFAULT_RATE			800
+#define ACCELSIM_ACCEL_DEFAULT_RATE			250
 #define ACCELSIM_ACCEL_DEFAULT_DRIVER_FILTER_FREQ	30
 #define ACCELSIM_ONE_G					9.80665f
 
 #define DIR_READ				(1<<7)
 #define DIR_WRITE				(0<<7)
-#define ACC_READ 				(0<<6)
+#define ACC_READ 				(1<<5)
 #define MAG_READ 				(1<<6)
 
 extern "C" { __EXPORT int accelsim_main(int argc, char *argv[]); }
@@ -114,13 +114,13 @@ private:
 	ringbuffer::RingBuffer	*_accel_reports;
 	ringbuffer::RingBuffer	*_mag_reports;
 
-	struct accel_scale	_accel_scale;
+	struct accel_calibration_s	_accel_scale;
 	unsigned		_accel_range_m_s2;
 	float			_accel_range_scale;
 	unsigned		_accel_samplerate;
 	unsigned		_accel_onchip_filter_bandwith;
 
-	struct mag_scale	_mag_scale;
+	struct mag_calibration_s	_mag_scale;
 	unsigned		_mag_range_ga;
 	float			_mag_range_scale;
 	unsigned		_mag_samplerate;
@@ -388,7 +388,7 @@ ACCELSIM::transfer(uint8_t *send, uint8_t *recv, unsigned len)
 		// Get data from the simulator
 		Simulator *sim = Simulator::getInstance();
 
-		if (sim == NULL) {
+		if (sim == nullptr) {
 			return ENODEV;
 		}
 
@@ -584,7 +584,7 @@ ACCELSIM::devIOCTL(unsigned long cmd, unsigned long arg)
 
 	case ACCELIOCSSCALE: {
 			/* copy scale, but only if off by a few percent */
-			struct accel_scale *s = (struct accel_scale *) arg;
+			struct accel_calibration_s *s = (struct accel_calibration_s *) arg;
 			float sum = s->x_scale + s->y_scale + s->z_scale;
 
 			if (sum > 2.0f && sum < 4.0f) {
@@ -606,7 +606,7 @@ ACCELSIM::devIOCTL(unsigned long cmd, unsigned long arg)
 
 	case ACCELIOCGSCALE:
 		/* copy scale out */
-		memcpy((struct accel_scale *) arg, &(_accel_scale), sizeof(_accel_scale));
+		memcpy((struct accel_calibration_s *) arg, &(_accel_scale), sizeof(_accel_scale));
 		return OK;
 
 	case ACCELIOCSELFTEST:
@@ -712,12 +712,12 @@ ACCELSIM::mag_ioctl(unsigned long cmd, unsigned long arg)
 
 	case MAGIOCSSCALE:
 		/* copy scale in */
-		memcpy(&_mag_scale, (struct mag_scale *) arg, sizeof(_mag_scale));
+		memcpy(&_mag_scale, (struct mag_calibration_s *) arg, sizeof(_mag_scale));
 		return OK;
 
 	case MAGIOCGSCALE:
 		/* copy scale out */
-		memcpy((struct mag_scale *) arg, &_mag_scale, sizeof(_mag_scale));
+		memcpy((struct mag_calibration_s *) arg, &_mag_scale, sizeof(_mag_scale));
 		return OK;
 
 	case MAGIOCSRANGE:
@@ -802,9 +802,21 @@ ACCELSIM::stop()
 void
 ACCELSIM::_measure()
 {
-	//PX4_INFO("ACCELSIM::_measure");
-	/* status register and data as read back from the device */
+#if 0
+	static int x = 0;
 
+	// Verify the samples are being taken at the expected rate
+	if (x == 99) {
+		x = 0;
+		PX4_INFO("ACCELSIM::measure %" PRIu64, hrt_absolute_time());
+
+	} else {
+		x++;
+	}
+
+#endif
+
+	/* status register and data as read back from the device */
 #pragma pack(push, 1)
 	struct {
 		uint8_t		cmd;
@@ -1147,7 +1159,7 @@ accelsim_main(int argc, char *argv[])
 	enum Rotation rotation = ROTATION_NONE;
 	int ret;
 	int myoptind = 1;
-	const char *myoptarg = NULL;
+	const char *myoptarg = nullptr;
 
 	/* jump over start/off/etc and look at options first */
 	while ((ch = px4_getopt(argc, argv, "R:", &myoptind, &myoptarg)) != EOF) {

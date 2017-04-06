@@ -76,9 +76,9 @@ typedef int px4_task_t;
 #define SCHED_PRIORITY_MIN sched_get_priority_min(SCHED_FIFO)
 #define SCHED_PRIORITY_DEFAULT (((sched_get_priority_max(SCHED_FIFO) - sched_get_priority_min(SCHED_FIFO)) / 2) + sched_get_priority_min(SCHED_FIFO))
 #elif defined(__PX4_QURT)
-#define SCHED_PRIORITY_MAX 0
+#define SCHED_PRIORITY_MAX 255
 #define SCHED_PRIORITY_MIN 0
-#define SCHED_PRIORITY_DEFAULT 0
+#define SCHED_PRIORITY_DEFAULT 20
 #else
 #error "No target OS defined"
 #endif
@@ -108,8 +108,8 @@ __EXPORT void px4_systemreset(bool to_bootloader) noreturn_function;
 
 /** Starts a task and performs any specific accounting, scheduler setup, etc. */
 __EXPORT px4_task_t px4_task_spawn_cmd(const char *name,
-				       int priority,
 				       int scheduler,
+				       int priority,
 				       int stack_size,
 				       px4_main_t entry,
 				       char *const argv[]);
@@ -131,8 +131,11 @@ __EXPORT bool px4_task_is_running(const char *taskname);
 
 #ifdef __PX4_POSIX
 /** set process (and thread) options */
-__EXPORT int px4_prctl(int option, const char *arg2, unsigned pid);
+__EXPORT int px4_prctl(int option, const char *arg2, px4_task_t pid);
 #endif
+
+/** return the name of the current task */
+__EXPORT const char *px4_get_taskname(void);
 
 __END_DECLS
 

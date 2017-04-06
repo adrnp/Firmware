@@ -40,12 +40,9 @@
  */
 
 /**
- * Enable or disable runway takeoff with landing gear
+ * Runway takeoff with landing gear
  *
- * 0: disabled, 1: enabled
- *
- * @min 0
- * @max 1
+ * @boolean
  * @group Runway Takeoff
  */
 PARAM_DEFINE_INT32(RWTO_TKOFF, 0);
@@ -55,6 +52,8 @@ PARAM_DEFINE_INT32(RWTO_TKOFF, 0);
  *
  * 0: airframe heading, 1: heading towards takeoff waypoint
  *
+ * @value 0 Airframe
+ * @value 1 Waypoint
  * @min 0
  * @max 1
  * @group Runway Takeoff
@@ -70,6 +69,8 @@ PARAM_DEFINE_INT32(RWTO_HDG, 0);
  * @unit m
  * @min 0.0
  * @max 100.0
+ * @decimal 1
+ * @increment 1
  * @group Runway Takeoff
  */
 PARAM_DEFINE_FLOAT(RWTO_NAV_ALT, 5.0);
@@ -78,8 +79,11 @@ PARAM_DEFINE_FLOAT(RWTO_NAV_ALT, 5.0);
  * Max throttle during runway takeoff.
  * (Can be used to test taxi on runway)
  *
+ * @unit norm
  * @min 0.0
  * @max 1.0
+ * @decimal 2
+ * @increment 0.01
  * @group Runway Takeoff
  */
 PARAM_DEFINE_FLOAT(RWTO_MAX_THR, 1.0);
@@ -93,6 +97,8 @@ PARAM_DEFINE_FLOAT(RWTO_MAX_THR, 1.0);
  * @unit deg
  * @min 0.0
  * @max 20.0
+ * @decimal 1
+ * @increment 0.5
  * @group Runway Takeoff
  */
 PARAM_DEFINE_FLOAT(RWTO_PSP, 0.0);
@@ -105,6 +111,8 @@ PARAM_DEFINE_FLOAT(RWTO_PSP, 0.0);
  * @unit deg
  * @min 0.0
  * @max 60.0
+ * @decimal 1
+ * @increment 0.5
  * @group Runway Takeoff
  */
 PARAM_DEFINE_FLOAT(RWTO_MAX_PITCH, 20.0);
@@ -117,6 +125,8 @@ PARAM_DEFINE_FLOAT(RWTO_MAX_PITCH, 20.0);
  * @unit deg
  * @min 0.0
  * @max 60.0
+ * @decimal 1
+ * @increment 0.5
  * @group Runway Takeoff
  */
 PARAM_DEFINE_FLOAT(RWTO_MAX_ROLL, 25.0);
@@ -126,8 +136,11 @@ PARAM_DEFINE_FLOAT(RWTO_MAX_ROLL, 25.0);
  * Pitch up will be commanded when the following airspeed is reached:
  * FW_AIRSPD_MIN * RWTO_AIRSPD_SCL
  *
+ * @unit norm
  * @min 0.0
  * @max 2.0
+ * @decimal 2
+ * @increment 0.01
  * @group Runway Takeoff
  */
 PARAM_DEFINE_FLOAT(RWTO_AIRSPD_SCL, 1.3);

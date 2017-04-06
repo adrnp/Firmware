@@ -33,9 +33,8 @@
 px4_add_module(
 	MODULE platforms__posix__drivers__gyrosim
 	MAIN gyrosim
-	STACK 1200
+	STACK_MAIN 1200
 	COMPILE_FLAGS
-		-Os
 	SRCS
 		gyrosim.cpp
 	DEPENDS
@@ -48,4 +47,4 @@ target_link_libraries(platforms__posix__drivers__gyrosim
 	df_driver_framework
 )
 
-# vim: set noet ft=cmake fenc=utf-8 ff=unix : 
+# vim: set noet ft=cmake fenc=utf-8 ff=unix :

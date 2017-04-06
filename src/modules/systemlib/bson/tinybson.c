@@ -54,15 +54,9 @@
 #define CODER_CHECK(_c)		do { if (_c->dead) { debug("coder dead"); return -1; }} while(0)
 #define CODER_KILL(_c, _reason)	do { debug("killed: %s", _reason); _c->dead = true; return -1; } while(0)
 
-#ifdef __PX4_QURT
-#define BSON_READ  px4_read
-#define BSON_WRITE px4_write
-#define BSON_FSYNC px4_fsync
-#else
 #define BSON_READ  read
 #define BSON_WRITE write
-#define BSON_FSYNC fsync
-#endif
+#define BSON_FSYNC px4_fsync
 
 static int
 read_x(bson_decoder_t decoder, void *p, size_t s)
@@ -462,7 +456,9 @@ bson_encoder_fini(bson_encoder_t encoder)
 	}
 
 	/* sync file */
-	BSON_FSYNC(encoder->fd);
+	if (encoder->fd > -1) {
+		BSON_FSYNC(encoder->fd);
+	}
 
 	return 0;
 }

@@ -60,6 +60,7 @@ public:
 	virtual void update_vtol_state();
 	virtual void update_transition_state();
 	virtual void update_fw_state();
+	virtual void update_mc_state();
 	virtual void fill_actuator_outputs();
 	virtual void waiting_on_tecs();
 
@@ -72,6 +73,11 @@ private:
 		float airspeed_blend;
 		float airspeed_trans;
 		float front_trans_timeout;
+		float front_trans_time_min;
+		float down_pitch_max;
+		float forward_thrust_scale;
+		int airspeed_mode;
+		float pitch_setpoint_offset;
 	} _params_standard;
 
 	struct {
@@ -81,6 +87,11 @@ private:
 		param_t airspeed_blend;
 		param_t airspeed_trans;
 		param_t front_trans_timeout;
+		param_t front_trans_time_min;
+		param_t down_pitch_max;
+		param_t forward_thrust_scale;
+		param_t airspeed_mode;
+		param_t pitch_setpoint_offset;
 	} _params_handles_standard;
 
 	enum vtol_mode {
@@ -101,7 +112,6 @@ private:
 
 	void set_max_mc(unsigned pwm_value);
 
-	int parameters_update();
-
+	virtual void parameters_update();
 };
 #endif

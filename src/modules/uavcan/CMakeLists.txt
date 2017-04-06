@@ -56,11 +56,9 @@ include_directories(libuavcan/libuavcan_drivers/stm32/driver/include)
 px4_add_module(
 	MODULE modules__uavcan
 	MAIN uavcan
-	STACK 3200
+	STACK_MAIN 3200
+	STACK_MAX 1500
 	COMPILE_FLAGS
-		-Wframe-larger-than=1500
-		-Wno-deprecated-declarations
-		-Os
 	SRCS
 		# Main
 		uavcan_main.cpp
@@ -69,6 +67,7 @@ px4_add_module(
 
 		# Actuators
 		actuators/esc.cpp
+		actuators/hardpoint.cpp
 
 		# Sensors
 		sensors/sensor_bridge.cpp
@@ -81,4 +80,4 @@ px4_add_module(
 		uavcan
 	)
 
-## vim: set noet ft=cmake fenc=utf-8 ff=unix : 
+## vim: set noet ft=cmake fenc=utf-8 ff=unix :

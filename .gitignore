@@ -2,8 +2,10 @@
 !ROMFS/*/*.d
 !ROMFS/*/*/*.d
 !ROMFS/*/*/*/*.d
+*.px4log
 *.dSYM
 *.o
+*.gch
 *.pyc
 *~
 .*.swp
@@ -18,6 +20,9 @@
 Archives/*
 Build/*
 Testing/
+Packages/*
+s3deploy-branch/
+s3deploy-archive/
 build/*
 build_*/
 core
@@ -63,3 +68,22 @@ CMakeLists.txt.user
 GPATH
 GRTAGS
 GTAGS
+*.creator
+*.creator.user
+*.files
+*.includes
+
+# uavcan firmware
+ROMFS/px4fmu_common/uavcan/
+vectorcontrol/
+
+
+# CLion ignores
+.idea
+cmake-build-*/
+
+# gcov code coverage
+coverage-html/
+coverage.info
+
+posix-configs/SITL/init/test/*_generated

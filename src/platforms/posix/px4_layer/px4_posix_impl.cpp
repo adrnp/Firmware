@@ -46,7 +46,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
-#include "systemlib/param/param.h"
+#include <systemlib/param/param.h>
 #include "hrt_work.h"
 #include <drivers/drv_hrt.h>
 #include "px4_time.h"
@@ -58,25 +58,34 @@ __BEGIN_DECLS
 
 long PX4_TICKS_PER_SEC = sysconf(_SC_CLK_TCK);
 
+#ifdef CONFIG_SHMEM
+extern void init_params(void);
+#endif
+
 __END_DECLS
 
 namespace px4
 {
 
-void init_once(void);
+void init_once();
 
-void init_once(void)
+void init_once()
 {
 	_shell_task_id = pthread_self();
-	printf("[init] shell id: %lu\n", (unsigned long)_shell_task_id);
+	//printf("[init] shell id: %lu\n", (unsigned long)_shell_task_id);
 	work_queues_init();
 	hrt_work_queue_init();
 	hrt_init();
+	param_init();
+
+#ifdef CONFIG_SHMEM
+	PX4_DEBUG("Syncing params to shared memory\n");
+	init_params();
+#endif
 }
 
 void init(int argc, char *argv[], const char *app_name)
 {
-	printf("[init] task name: %s\n", app_name);
 	printf("\n");
 	printf("______  __   __    ___ \n");
 	printf("| ___ \\ \\ \\ / /   /   |\n");
@@ -85,8 +94,7 @@ void init(int argc, char *argv[], const char *app_name)
 	printf("| |     / /^\\ \\ \\___  |\n");
 	printf("\\_|     \\/   \\/     |_/\n");
 	printf("\n");
-	printf("Ready to fly.\n");
-	printf("\n");
+	printf("%s starting.\n", app_name);
 	printf("\n");
 
 	// set the threads name

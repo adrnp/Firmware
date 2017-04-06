@@ -33,9 +33,8 @@
 px4_add_module(
 	MODULE modules__fw_att_control
 	MAIN fw_att_control
-	STACK 1200
+	STACK_MAIN 1200
 	COMPILE_FLAGS
-		-Os
 	SRCS
 		fw_att_control_main.cpp
 	DEPENDS
@@ -43,4 +42,4 @@ px4_add_module(
 		git_ecl
 		lib__ecl
 	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix : 
+# vim: set noet ft=cmake fenc=utf-8 ff=unix :
