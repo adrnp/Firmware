@@ -44,3 +44,6 @@
 [submodule "mavlink/include/mavlink/v1.0_aa241x"]
 	path = mavlink/include/mavlink/v1.0_aa241x
 	url = https://github.com/adrnp/aa241x_c_mavlink_library.git
+[submodule "mavlink/include/mavlink/v2.0_aa241x"]
+	path = mavlink/include/mavlink/v2.0_aa241x
+	url = https://github.com/adrnp/aa241x_mavlink2.0.git

@@ -61,7 +61,7 @@
 #include <drivers/drv_hrt.h>
 #include <arch/board/board.h>
 #include <mathlib/mathlib.h>
-#include <mavlink/mavlink_log.h>
+//#include <mavlink/mavlink_log.h>
 #include <drivers/drv_tone_alarm.h>
 
 #include "LakeFire.h"

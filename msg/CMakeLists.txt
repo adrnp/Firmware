@@ -32,6 +32,14 @@
 ############################################################################
 
 set(msg_file_names
+	aa241x_cgrid.msg
+	aa241x_fire_prop.msg
+	aa241x_local_data.msg
+	aa241x_mission_status.msg
+	aa241x_picture_request.msg
+	aa241x_picture_result.msg
+	aa241x_water_drop_request.msg
+	aa241x_water_drop_result.msg
 	actuator_armed.msg
 	actuator_controls.msg
 	actuator_direct.msg

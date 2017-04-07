@@ -41,7 +41,8 @@
 #include <time.h>
 #include <stdio.h>
 #include <cstdbool>
-#include <v2.0/mavlink_types.h>
+//#include <v2.0/mavlink_types.h>
+#include <v2.0_aa241x/mavlink_types.h>
 #include "mavlink_stream.h"
 
 class Mavlink;

@@ -3965,7 +3965,7 @@ public:
 		return "AA241X_MISSION_STATUS";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_MISSION_STATUS;
 	}
@@ -4027,7 +4027,7 @@ public:
 		return "AA241X_PICTURE_RESULT";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_PICTURE_RESULT;
 	}
@@ -4095,7 +4095,7 @@ public:
 		return "AA241X_WATER_DROP_RESULT";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_WATER_DROP_RESULT;
 	}
@@ -4154,7 +4154,7 @@ public:
 		return "AA241X_HIGH";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_HIGH;
 	}
@@ -4226,7 +4226,7 @@ public:
 		return "AA241X_LOW";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_LOW;
 	}
@@ -4299,7 +4299,7 @@ public:
 		return "AA241X_AUX_DATA";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_AUX_DATA;
 	}
@@ -4364,7 +4364,7 @@ public:
 		return "AA241X_GRID_COMBINED";
 	}
 
-	uint8_t get_id()
+	uint16_t get_id()
 	{
 		return MAVLINK_MSG_ID_AA241X_GRID_COMBINED;
 	}
