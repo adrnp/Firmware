@@ -40,4 +40,4 @@
 	url = https://github.com/ATLFlight/cmake_hexagon
 [submodule "src/drivers/gps/devices"]
 	path = src/drivers/gps/devices
-	url = https://github.com/PX4/GpsDrivers.git
+	url = https://github.com/adrnp/GpsDrivers.git
