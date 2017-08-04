@@ -83,6 +83,7 @@
 #include "devices/src/ubx.h"
 #include "devices/src/mtk.h"
 #include "devices/src/ashtech.h"
+#include "devices/src/sbf.h"
 
 
 #define TIMEOUT_5HZ 500
@@ -703,6 +704,10 @@ GPS::task_main()
 				_helper = new GPSDriverAshtech(&GPS::callback, this, &_report_gps_pos, _p_report_sat_info);
 				break;
 
+			case GPS_DRIVER_MODE_SBF:
+				_helper = new GPSDriverSBF(&GPS::callback, this, &_report_gps_pos);
+				break;
+
 			default:
 				break;
 			}
@@ -805,6 +810,10 @@ GPS::task_main()
 					break;
 
 				case GPS_DRIVER_MODE_MTK:
+					_mode = GPS_DRIVER_MODE_SBF;
+					break;
+
+				case GPS_DRIVER_MODE_SBF:
 					_mode = GPS_DRIVER_MODE_ASHTECH;
 					break;
 
